@@ -6,10 +6,12 @@
 #   make debug         Compila com -g e sanitizers ASan/UBSan (build/jvm-debug)
 #   make test          Testes unitários
 #   make test-integration  Testes de integração (programas Java em tests/java)
-#   make check         test + test-integration
+#   make test-viewer   Compara o exibidor com o javap em todos os fixtures
+#   make check         test + test-viewer + test-integration
 #   make windows       Gera build/jvm.exe com MinGW-w64 (GCC)
 #   make test-windows  Testes de integração usando build/jvm.exe (via WSL)
-#   make fuzz          Compila e roda os alvos do libFuzzer (Clang)
+#   make fuzz          Compila e roda os alvos do libFuzzer (Clang), FUZZ_TIME=60 s
+#   make fuzz-checkpoint  Sessão de fuzzing dos checkpoints (10 min por alvo)
 #   make fuzz-smoke    Verifica se o libFuzzer encontra o bug proposital
 #   make docs          Gera a documentação Doxygen em build/docs/html
 #   make check-env     Verifica as ferramentas instaladas
@@ -65,9 +67,11 @@ FIXTURES_STAMP := $(FIXTURES_DIR)/.stamp
 FUZZ_FLAGS   := $(STD) -g -O1 -fsanitize=fuzzer,address,undefined $(CPPFLAGS)
 FUZZ_TARGETS := $(filter-out fuzz_smoke,$(basename $(notdir $(wildcard fuzz/fuzz_*.c))))
 FUZZ_TIME    ?= 60
+# Duração padrão das sessões de fuzzing dos checkpoints (10 minutos).
+FUZZ_CHECKPOINT_TIME ?= 600
 
 .PHONY: all debug test test-integration check windows test-windows \
-        fuzz fuzz-smoke docs check-env clean fixtures
+        fuzz fuzz-checkpoint fuzz-smoke docs check-env clean fixtures test-viewer
 
 all: $(BIN)
 
@@ -106,7 +110,10 @@ test: $(TEST_BIN) $(FIXTURES_STAMP)
 test-integration: $(BIN)
 	JVM_CMD="./$(BIN) -i" tests/run_tests.sh
 
-check: test test-integration
+test-viewer: $(BIN) $(FIXTURES_STAMP)
+	JVM=./$(BIN) tools/compare_javap.sh $$(find $(FIXTURES_DIR) -name '*.class' | sort)
+
+check: test test-viewer test-integration
 
 # --------------------------------------------------------------- windows ----
 windows: build/jvm.exe
@@ -143,6 +150,9 @@ fuzz: $(addprefix build/fuzz/,$(FUZZ_TARGETS)) $(FIXTURES_STAMP)
 			-artifact_prefix=build/fuzz/artifacts/$$t/ \
 			build/fuzz/corpus/$$t fuzz/corpus/$$t $(FIXTURES_DIR) || exit 1; \
 	done
+
+fuzz-checkpoint:
+	$(MAKE) fuzz FUZZ_TIME=$(FUZZ_CHECKPOINT_TIME)
 
 fuzz-smoke: build/fuzz/fuzz_smoke
 	@mkdir -p build/fuzz/artifacts/fuzz_smoke

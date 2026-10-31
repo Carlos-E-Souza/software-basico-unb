@@ -1,49 +1,86 @@
 /**
  * @file main.c
- * @brief Ponto de entrada da JVM didática.
- *
- * @details Nesta fase (setup do ambiente) o programa reconhece apenas as
- * opções `--help` e `--version`. Os modos leitor/exibidor e interpretador
- * serão conectados aqui nas etapas 3 e 4 do plano (`docs/PLANO.md`).
+ * @brief Ponto de entrada da JVM didática: interpreta a linha de comando e
+ *        executa o modo escolhido (exibidor ou interpretador).
  */
 #include <stdio.h>
-#include <string.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#include "classfile/class_file.h"
+#include "cli/cli.h"
 #include "version.h"
+#include "viewer/viewer.h"
 
-/** @brief Código de saída: execução bem-sucedida. */
-#define EXIT_CODE_OK 0
-/** @brief Código de saída: argumentos de linha de comando inválidos. */
-#define EXIT_CODE_USAGE 1
-/** @brief Código de saída: funcionalidade ainda não implementada. */
-#define EXIT_CODE_NOT_IMPLEMENTED 2
+/** @brief Tamanho máximo do caminho de um arquivo `.class`. */
+#define PATH_BUFFER_SIZE 4096
 
 /**
- * @brief Imprime a mensagem de ajuda com a sintaxe da linha de comando.
+ * @brief Configura o terminal do Windows para exibir UTF-8 corretamente.
+ *
+ * @details **Algoritmo:** no Windows, troca a página de código de saída do
+ * console para UTF-8 (65001); nos demais sistemas não faz nada.
+ */
+static void setup_console(void)
+{
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
+}
+
+/**
+ * @brief Executa o modo leitor/exibidor.
  *
  * @details
  * **Algoritmo:**
- * 1. Escreve no fluxo informado a sintaxe de uso de cada modo;
- * 2. Escreve a lista de opções disponíveis.
+ * 1. Monta o caminho do `.class` (cli_resolve_class_path());
+ * 2. Lê a classe (class_file_load()); em caso de erro, informa a mensagem e
+ *    a posição no arquivo;
+ * 3. Abre o arquivo de saída, se `--output` foi informado;
+ * 4. Escreve as estruturas (viewer_print_class()) e libera a memória.
  *
- * @param[in] out          Fluxo de saída onde a ajuda será escrita (ex.: `stdout`).
- * @param[in] program_name Nome do executável, normalmente `argv[0]`.
+ * @param[in] options Opções da linha de comando.
+ * @return #EXIT_CODE_OK, #EXIT_CODE_USAGE ou #EXIT_CODE_CLASS_ERROR.
  */
-static void print_usage(FILE *out, const char *program_name)
+static int run_viewer(const CliOptions *options)
 {
-    fprintf(out,
-            "Uso:\n"
-            "  %s --mode viewer      --classpath <dir> <Classe|arquivo.class> [--output <arquivo>]\n"
-            "  %s --mode interpreter --classpath <dir> <ClassePrincipal>\n"
-            "\n"
-            "Opcoes:\n"
-            "  -v, --mode viewer       Leitor/exibidor de arquivos .class\n"
-            "  -i, --mode interpreter  Interpretador de bytecode\n"
-            "  -cp, --classpath <dir>  Diretorio onde ficam os arquivos .class\n"
-            "  --output <arquivo>      (exibidor) grava a saida em arquivo\n"
-            "  -h, --help              Mostra esta ajuda\n"
-            "  --version               Mostra a versao do programa\n",
-            program_name, program_name);
+    char path[PATH_BUFFER_SIZE];
+    ClassFile *class_file = NULL;
+    ClassFileError err;
+    FILE *out = stdout;
+    int status = EXIT_CODE_OK;
+
+    if (!cli_resolve_class_path(options, path, sizeof path)) {
+        fprintf(stderr, "Erro: caminho da classe muito longo.\n");
+        return EXIT_CODE_USAGE;
+    }
+    if (class_file_load(path, &class_file, &err) != CF_OK) {
+        fprintf(stderr, "Erro ao ler '%s': %s (%s, byte %lu)\n", path, err.message,
+                cf_status_name(err.status), (unsigned long)err.offset);
+        return EXIT_CODE_CLASS_ERROR;
+    }
+    if (options->output != NULL) {
+        out = fopen(options->output, "w");
+        if (out == NULL) {
+            fprintf(stderr, "Erro: nao foi possivel criar '%s'.\n", options->output);
+            class_file_free(class_file);
+            return EXIT_CODE_CLASS_ERROR;
+        }
+    }
+
+    viewer_print_class(out, class_file, path);
+
+    if (ferror(out)) {
+        fprintf(stderr, "Erro ao escrever a saida.\n");
+        status = EXIT_CODE_CLASS_ERROR;
+    }
+    if (out != stdout && fclose(out) != 0) {
+        status = EXIT_CODE_CLASS_ERROR;
+    }
+    class_file_free(class_file);
+    return status;
 }
 
 /**
@@ -51,34 +88,45 @@ static void print_usage(FILE *out, const char *program_name)
  *
  * @details
  * **Algoritmo:**
- * 1. Sem argumentos, imprime a ajuda em `stderr` e retorna erro de uso;
- * 2. Com `-h`/`--help`, imprime a ajuda em `stdout` e retorna sucesso;
- * 3. Com `--version`, imprime a versão e retorna sucesso;
- * 4. Qualquer outro argumento ainda não é suportado nesta fase do projeto.
+ * 1. Configura o console (UTF-8 no Windows);
+ * 2. Interpreta os argumentos (cli_parse()); em caso de erro, mostra a
+ *    mensagem e a ajuda e retorna #EXIT_CODE_USAGE;
+ * 3. Despacha: ajuda, versão, exibidor (run_viewer()) ou interpretador
+ *    (ainda não implementado nesta etapa).
  *
  * @param[in] argc Quantidade de argumentos da linha de comando.
  * @param[in] argv Vetor com os argumentos da linha de comando.
- * @return #EXIT_CODE_OK, #EXIT_CODE_USAGE ou #EXIT_CODE_NOT_IMPLEMENTED.
+ * @return Código de saída (ver `cli.h`).
  */
 int main(int argc, char **argv)
 {
     const char *program_name = (argc > 0 && argv[0] != NULL) ? argv[0] : "jvm";
+    char error[CLI_ERROR_SIZE];
+    CliOptions options;
 
-    if (argc < 2) {
-        print_usage(stderr, program_name);
+    setup_console();
+
+    if (!cli_parse(argc, argv, &options, error, sizeof error)) {
+        fprintf(stderr, "Erro: %s\n\n", error);
+        cli_print_usage(stderr, program_name);
         return EXIT_CODE_USAGE;
     }
 
-    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-        print_usage(stdout, program_name);
+    switch (options.mode) {
+    case CLI_MODE_HELP:
+        cli_print_usage(stdout, program_name);
         return EXIT_CODE_OK;
-    }
-
-    if (strcmp(argv[1], "--version") == 0) {
+    case CLI_MODE_VERSION:
         printf("jvm %s\n", jvm_version_string());
         return EXIT_CODE_OK;
+    case CLI_MODE_VIEWER:
+        return run_viewer(&options);
+    case CLI_MODE_INTERPRETER:
+        fprintf(stderr, "Erro: o interpretador ainda nao foi implementado.\n");
+        return EXIT_CODE_NOT_IMPLEMENTED;
+    case CLI_MODE_NONE:
+        break;
     }
-
-    fprintf(stderr, "Erro: opcao '%s' ainda nao implementada.\n", argv[1]);
-    return EXIT_CODE_NOT_IMPLEMENTED;
+    cli_print_usage(stderr, program_name);
+    return EXIT_CODE_USAGE;
 }

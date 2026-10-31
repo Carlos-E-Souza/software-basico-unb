@@ -1,20 +1,27 @@
 /**
  * @file fuzz_reader.c
- * @brief Alvo do libFuzzer para o leitor de `.class` (atividade L-09).
+ * @brief Alvo do libFuzzer para o leitor e o exibidor de `.class`
+ *        (atividades L-09 e E-05).
  *
  * @details Cada entrada gerada pelo fuzzer é tratada como um arquivo `.class`.
- * Se a leitura tiver sucesso, todas as funções de consulta do pool e de
- * busca de atributos são exercitadas sobre a estrutura montada, e ela é
- * liberada. O AddressSanitizer/UBSan detectam qualquer acesso inválido,
+ * Se a leitura tiver sucesso, todas as funções de consulta do pool são
+ * exercitadas, a classe inteira é escrita pelo exibidor (incluindo a
+ * desmontagem de bytecode arbitrário) em um arquivo descartável, e a
+ * estrutura é liberada. O AddressSanitizer/UBSan detectam qualquer acesso inválido,
  * vazamento ou comportamento indefinido.
  */
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "classfile/attributes.h"
 #include "classfile/class_file.h"
 #include "classfile/constant_pool.h"
 #include "common/mutf8.h"
+#include "viewer/viewer.h"
+
+/** @brief Destino descartável da saída do exibidor (aberto uma única vez). */
+static FILE *sink_file = NULL;
 
 /**
  * @brief Percorre todas as entradas do pool chamando as funções de consulta.
@@ -61,7 +68,8 @@ static unsigned exercise_constant_pool(const ClassFile *cf)
  * @details
  * **Algoritmo:**
  * 1. Chama class_file_parse() sobre os bytes;
- * 2. Em caso de sucesso, exercita o pool e procura o atributo Code de cada método;
+ * 2. Em caso de sucesso, exercita o pool, procura o atributo Code de cada
+ *    método e escreve a classe com viewer_print_class() em `/dev/null`;
  * 3. Libera a estrutura.
  *
  * @param[in] data Bytes gerados pelo fuzzer.
@@ -82,6 +90,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             sink += attribute_find(m->attributes, m->attributes_count, ATTR_CODE) != NULL;
         }
         sink += class_file_java_version_name(cf->major_version)[0];
+        if (sink_file == NULL) {
+            sink_file = fopen("/dev/null", "w");
+        }
+        if (sink_file != NULL) {
+            viewer_print_class(sink_file, cf, "fuzz");
+        }
     }
     sink += cf_status_name(err.status)[0];
     class_file_free(cf);

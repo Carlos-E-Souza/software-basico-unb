@@ -12,6 +12,10 @@ int test_current_failed = 0;
 void suite_version(void);
 void suite_byte_reader(void);
 void suite_class_file(void);
+void suite_opcodes(void);
+void suite_number_format(void);
+void suite_viewer(void);
+void suite_cli(void);
 
 /**
  * @brief Executa todas as suítes e informa o resultado.
@@ -32,6 +36,14 @@ int main(void)
     suite_byte_reader();
     printf("Suite: class_file\n");
     suite_class_file();
+    printf("Suite: opcodes\n");
+    suite_opcodes();
+    printf("Suite: number_format\n");
+    suite_number_format();
+    printf("Suite: viewer\n");
+    suite_viewer();
+    printf("Suite: cli\n");
+    suite_cli();
 
     printf("\n%d teste(s), %d falha(s)\n", test_count, test_failures);
     return test_failures == 0 ? 0 : 1;

@@ -41,4 +41,13 @@ void bb_minimal_class_head(ByteBuf *b, uint16_t extra_cp);
  */
 void bb_minimal_class_tail(ByteBuf *b);
 
+/**
+ * @brief Monta uma classe mínima com um método estático `m()V` cujo Code
+ *        contém exatamente os bytes informados (sem tabela de exceções).
+ * @param[out] b      Buffer (é zerado antes).
+ * @param[in]  code   Bytecode do método.
+ * @param[in]  length Tamanho do bytecode.
+ */
+void bb_class_with_code(ByteBuf *b, const uint8_t *code, uint16_t length);
+
 #endif /* JVM_TEST_UTIL_H */

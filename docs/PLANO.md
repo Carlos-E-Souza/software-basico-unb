@@ -14,7 +14,7 @@
 | R1 | Compilar com **GCC** | `Makefile` usa `CC=gcc`; build de entrega no Windows via GCC (MinGW-w64) |
 | R2 | Da API Java, só é permitida a classe **`java/lang/Object`** | Nenhum `rt.jar`/JDK é carregado pela JVM; `String`, `StringBuilder`, `System.out`, exceções da biblioteca etc. são **simulados nativamente em C** |
 | R3 | Todo o código C com **`-std=c99`** | Flag fixa no `Makefile` + `-pedantic -Wall -Wextra` |
-| R4 | **libFuzzer** como analisador dinâmico | Alvos de fuzzing para o leitor e para o interpretador (ver decisão D1) |
+| R4 | **libFuzzer** como analisador dinâmico | Alvos de fuzzing para o leitor e para o interpretador (ver decisões D1 e D15) |
 | R5 | **Flags de linha de comando** para escolher *leitor/exibidor* ou *interpretador* e o **diretório** dos `.class` | Parser de argumentos próprio (seção 3.3) |
 | R6 | **Doxygen** gerando: página por função, diagrama de comunicação entre funções, descrição das principais estruturas; para cada função: nome, objetivo, parâmetros de entrada, parâmetros de saída, algoritmo, links para chamadoras e chamadas | `Doxyfile` configurado (seção 3.5) + modelo de comentário obrigatório (seção 3.4) |
 | R7 | Comentários escritos **junto com o código**, em qualquer etapa | Definição de pronto de toda atividade exige comentários Doxygen completos |
@@ -60,6 +60,7 @@
 | D12 | **Formato de saída do exibidor é livre.** Usaremos um formato próprio, hierárquico e legível, inspirado no `javap -v`/jclasslib; a comparação com o `javap` é de **conteúdo**, não de formatação. **(Confirmado.)** | Liberdade de formato informada. |
 | D13 | Como **não se sabe como os testes de "Java 2" serão gerados**, o leitor e o interpretador aceitam **qualquer major de 45 a 52**, e o corpus de testes de Java 2 é gerado de duas formas: `javac` 8 com `-target 1.2` e, se possível, um JDK antigo (1.3/1.4). | Cobre as diferenças de geração de código entre compiladores (ex.: `jsr/ret`, `StringBuffer`). |
 | D14 | Sem cronograma com datas; a ordem é dada pelas dependências (seção 5) e pelos checkpoints. **(Confirmado.)** | Informado pelo usuário. |
+| D15 | **Fuzzing:** `make fuzz` (60 s) no dia a dia, depois de mudanças; sessões de **10 minutos** (`make fuzz-checkpoint`) em cada checkpoint, registradas em `docs/relatorios/`. **(Confirmado.)** | A cobertura praticamente estabiliza nos primeiros minutos; sessões mais longas trazem pouco ganho. |
 
 ---
 
@@ -307,9 +308,9 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 #### L-09 · Fuzzing do leitor
 - **Objetivo:** analisar dinamicamente o leitor com libFuzzer.
 - **Requisitos:** L-08, S-03.
-- **Tarefas:** `fuzz/fuzz_reader.c` (lê a partir de buffer em memória); corpus inicial com os `.class` de teste; rodar ≥ 30 min; corrigir *crashes* e adicionar cada um como teste de regressão.
-- **Pronto quando:** sessão de fuzzing de 30 min sem *crash*/vazamento; relatório curto (cobertura, bugs encontrados) registrado em `docs/`.
-- **Situação:** ✅ concluída — 34,7 milhões de execuções em ~38 min, sem *crash*/vazamento/UB; relatório em `docs/relatorios/fuzzing-leitor.md`.
+- **Tarefas:** `fuzz/fuzz_reader.c` (lê a partir de buffer em memória); corpus inicial com os `.class` de teste; rodar ≥ 10 min (`make fuzz-checkpoint`); corrigir *crashes* e adicionar cada um como teste de regressão.
+- **Pronto quando:** sessão de fuzzing de 10 min sem *crash*/vazamento; relatório curto (cobertura, bugs encontrados) registrado em `docs/`.
+- **Situação:** ✅ concluída — 34,7 milhões de execuções em ~38 min, sem *crash*/vazamento/UB; relatório em `docs/relatorios/fuzzing-leitor-exibidor.md`.
 
 ---
 
@@ -320,41 +321,47 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** L-02.
 - **Tarefas:** tabela estática `{opcode, mnemonic, operand_bytes, operand_kind}`; casos especiais `tableswitch`/`lookupswitch` (alinhamento de 4 bytes), `wide`, `invokeinterface`, `multianewarray`.
 - **Pronto quando:** teste unitário confere todos os 202 opcodes com a especificação.
+- **Situação:** ✅ concluída — `bytecode/opcodes.c` (compartilhado com o interpretador), incluindo `bytecode_instruction_length()` com alinhamento de `switch` e `wide`; suíte `opcodes`.
 
 #### E-02 · Informações gerais
 - **Objetivo:** definir o formato próprio de saída (D12) e exibir minor/major (com nome da versão Java), tamanho do pool, flags decodificadas, this/super, contagens.
 - **Requisitos:** L-07.
 - **Pronto quando:** saída conferida manualmente com `javap -v` para 3 classes (uma de cada versão).
+- **Situação:** ✅ concluída — `viewer/printer.c`; formato próprio descrito no README.
 
 #### E-03 · Pool de constantes
 - **Objetivo:** exibir cada entrada com índice, tipo e valor **resolvido** (ex.: `#7 = Methodref #2.#15 // java/io/PrintStream.println:(Ljava/lang/String;)V`).
 - **Requisitos:** E-02.
 - **Pronto quando:** comparação com `javap -v` sem divergências de conteúdo.
+- **Situação:** ✅ concluída — referências e valores resolvidos idênticos ao `javap` (inclusive `float`/`double` no formato do Java, via `common/number_format.c`).
 
 #### E-04 · Interfaces, campos e métodos
 - **Objetivo:** exibir nome, descritor, flags e atributos de cada item.
 - **Requisitos:** E-03.
 - **Pronto quando:** idem E-03.
+- **Situação:** ✅ concluída — nome, descritor, flags decodificadas por contexto e atributos.
 
 #### E-05 · Atributos e bytecode (disassembler)
 - **Objetivo:** exibir atributos e o código com mnemônicos.
 - **Requisitos:** E-01, E-04.
 - **Tarefas:** para cada instrução: *offset*, mnemônico, operandos (índices do pool resolvidos, destinos de desvio em endereço absoluto, tabelas de `switch`, `wide`); `exception_table`, `LineNumberTable`, `LocalVariableTable`.
 - **Pronto quando:** *disassembly* de todo o corpus confere com `javap -c -v` (script de comparação semiautomática).
+- **Situação:** ✅ concluída — `viewer/disassembler.c`; `make test-viewer` (`tools/compare_javap.sh`) confere pool e bytecode das 29 classes de fixture sem divergências; 167 opcodes distintos nos fixtures e os demais (`jsr`, `ret`, `goto_w`, `wide`...) em testes com bytecode montado à mão.
 
 #### E-06 · Integração com a CLI
 - **Objetivo:** modo leitor/exibidor acessível pelas flags.
 - **Requisitos:** E-05.
 - **Tarefas:** `--mode viewer`, `--classpath`, `--output`; mensagens de erro claras.
 - **Pronto quando:** funciona no Linux **e** no `jvm.exe` no Windows para os corpora Java 2, 6 e 8.
+- **Situação:** ✅ concluída — `cli/cli.c` + `main.c`; saída do `jvm.exe` idêntica à do Linux nas 29 classes; console do Windows configurado para UTF-8.
 
 > ### ✅ CHECKPOINT C2 — Leitor/Exibidor (1ª entrega)
-> - [ ] Lê corretamente `.class` de Java 2, 6 e 8
-> - [ ] Exibe todas as estruturas e o bytecode com mnemônicos
-> - [ ] Saída conferida contra `javap` em todo o corpus
-> - [ ] Fuzzing do leitor sem *crashes*; ASan sem vazamentos
-> - [ ] Funciona no Windows com as flags
-> - [ ] Documentação Doxygen do leitor/exibidor completa e sem warnings
+> - [x] Lê corretamente `.class` de Java 2, 6 e 8
+> - [x] Exibe todas as estruturas e o bytecode com mnemônicos
+> - [x] Saída conferida contra `javap` em todo o corpus
+> - [x] Fuzzing do leitor sem *crashes*; ASan sem vazamentos
+> - [x] Funciona no Windows com as flags
+> - [x] Documentação Doxygen do leitor/exibidor completa e sem warnings
 > - [ ] *Tag* git `v1.0-leitor-exibidor`
 
 ---
@@ -429,7 +436,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 
 #### I-16 · Fuzzing e robustez do interpretador
 - **Tarefas:** `fuzz/fuzz_interpreter.c` com limite de passos/memória; verificações defensivas (índices do pool, pilha estourada/vazia, `pc` fora do código); ASan/UBSan em toda a suíte.
-- **Pronto quando:** 30 min de fuzzing sem *crash* não tratado; suíte limpa em ASan/UBSan.
+- **Pronto quando:** 10 min de fuzzing (`make fuzz-checkpoint`) sem *crash* não tratado; suíte limpa em ASan/UBSan.
 
 > ### ✅ CHECKPOINT C3a — Núcleo (após I-08)
 > - [ ] Programas só com `main` + métodos estáticos e todos os tipos primitivos executam corretamente nas 3 versões
@@ -489,7 +496,7 @@ Paralelização possível em equipe: E-01 junto com L-03…L-07; I-13/I-14 (nati
 | libFuzzer não existe no GCC | Conflito R1 × R4 | D1: Clang só para os *harnesses* de fuzz; produto final compilado com GCC |
 | `javac` moderno não gera bytecode Java 2 / testes do professor gerados de forma desconhecida | Sem testes de Java 2 ou divergência na avaliação | D5/D13: testar cedo (S-05); aceitar major 45–52; corpus Java 2 gerado por mais de um compilador |
 | Diferenças Linux × Windows (`long` 32 bits, `\r\n`, caminhos, `printf` de `%lld` no MinGW antigo) | Bugs só no Windows | D3; usar `PRId64` de `inttypes.h`; `__USE_MINGW_ANSI_STDIO=1`; testar no Windows em todo checkpoint |
-| Formatação de `float`/`double` diferente do Java | Saída divergente | Implementar algoritmo de menor dígito com *round-trip*; testes dedicados (I-14) |
+| Formatação de `float`/`double` diferente do Java | Saída divergente | `common/number_format.c` já implementa as regras do `Double.toString` (menor representação, faixas decimal/científica, subnormais) e confere com o Java 8 em 97% de 20 mil valores aleatórios. As diferenças restantes vêm de um defeito do JDK 8 (nem sempre escolhe a menor representação para \|x\| ≥ 10⁷ em `float` e ≥ 10¹⁷ em `double`). Em I-14, avaliar portar o algoritmo `FloatingDecimal` do JDK 8 se algum teste precisar |
 | UB em C na aritmética (overflow com sinal, shift ≥ largura, divisão `MIN/-1`) | Resultados errados/crash | Aritmética em tipos sem sinal; casos especiais explícitos; UBSan |
 | `jsr/ret` e `finally` no Java 2 | Exceções falham no Java 2 | I-07 inclui testes específicos de `finally` em Java 2 |
 | Documentação deixada para o fim | Perda de nota | R7/DoD comum: `make docs` com `WARN_AS_ERROR` |

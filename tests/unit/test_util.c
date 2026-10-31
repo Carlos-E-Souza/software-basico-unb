@@ -59,3 +59,32 @@ void bb_minimal_class_tail(ByteBuf *b)
     bb_u2(b, 0);      /* methods */
     bb_u2(b, 0);      /* attributes */
 }
+
+void bb_class_with_code(ByteBuf *b, const uint8_t *code, uint16_t length)
+{
+    uint16_t i;
+    bb_minimal_class_head(b, 2);
+    bb_utf8(b, "m");   /* #6 */
+    bb_utf8(b, "()V"); /* #7 */
+    bb_u2(b, 0x0021);
+    bb_u2(b, 2);
+    bb_u2(b, 4);
+    bb_u2(b, 0);      /* interfaces */
+    bb_u2(b, 0);      /* fields */
+    bb_u2(b, 1);      /* methods */
+    bb_u2(b, 0x0009); /* public static */
+    bb_u2(b, 6);
+    bb_u2(b, 7);
+    bb_u2(b, 1);      /* attributes */
+    bb_u2(b, 5);      /* "Code" */
+    bb_u4(b, 2 + 2 + 4 + (uint32_t)length + 2 + 2);
+    bb_u2(b, 2);      /* max_stack */
+    bb_u2(b, 400);    /* max_locals */
+    bb_u4(b, length);
+    for (i = 0; i < length; i++) {
+        bb_u1(b, code[i]);
+    }
+    bb_u2(b, 0);      /* exception_table_length */
+    bb_u2(b, 0);      /* attributes_count */
+    bb_u2(b, 0);      /* atributos da classe */
+}

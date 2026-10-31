@@ -5,9 +5,6 @@ Repositório do projeto da disciplina de **Software Básico (UnB)**: uma **Máqu
 - **Leitor/Exibidor:** lê um arquivo `.class` e mostra as estruturas montadas (pool de constantes, campos, métodos, atributos) e o bytecode com os mnemônicos.
 - **Interpretador:** executa pequenos programas Java compilados com `javac` para **Java 2 (1.2), Java 6 ou Java 8**.
 
-O planejamento completo (requisitos, arquitetura, atividades e checkpoints) está em [`docs/PLANO.md`](docs/PLANO.md).
-
-> ⚠️ **Projeto em desenvolvimento.** Os comandos de build e uso abaixo descrevem a interface **planejada**; eles passam a funcionar conforme as etapas do plano são concluídas.
 
 ---
 
@@ -36,8 +33,6 @@ Pela regra da disciplina, **a única classe da API Java usada é `java/lang/Obje
 - Código compilado com **GCC** e **`-std=c99`**.
 - **libFuzzer** como analisador dinâmico. O libFuzzer só existe no Clang, então o **Clang é usado apenas para compilar os alvos de fuzzing**; o executável do projeto é sempre compilado com GCC.
 - Documentação gerada pelo **Doxygen**.
-- **Comentários e documentação em português do Brasil; código (funções, variáveis, tipos) em inglês.**
-- Todo código já deve ser escrito com os comentários Doxygen completos (objetivo, parâmetros de entrada e saída, descrição do algoritmo). Veja o modelo na seção 3.4 do [plano](docs/PLANO.md).
 
 ---
 
@@ -105,8 +100,10 @@ javac -version   # deve mostrar 1.8.x
 | `make test` | Roda os testes unitários (compila antes as classes de `tests/fixtures` para Java 2, 6 e 8) |
 | `make fixtures` | Apenas compila as classes de `tests/fixtures` em `build/fixtures/java{2,6,8}` |
 | `make test-integration` | Roda os programas de `tests/java` na nossa JVM (Java 2, 6 e 8) e compara com a saída do `java` real |
-| `make check` | `test` + `test-integration` |
+| `make test-viewer` | Compara o conteúdo exibido (pool de constantes e bytecode) com o `javap` em todos os fixtures |
+| `make check` | `test` + `test-viewer` + `test-integration` |
 | `make fuzz` | Compila e executa os alvos do libFuzzer com Clang (`FUZZ_TIME=60` segundos por alvo) |
+| `make fuzz-checkpoint` | Sessão de fuzzing dos checkpoints: 10 minutos por alvo (`FUZZ_CHECKPOINT_TIME=600`) |
 | `make fuzz-smoke` | Confirma que o libFuzzer funciona (precisa encontrar um bug proposital) |
 | `make docs` | Gera a documentação Doxygen em `build/docs/html/index.html` |
 | `make windows` | Gera `build/jvm.exe` para Windows (MinGW-w64) |
@@ -150,18 +147,23 @@ powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1 -Jvm build\jvm.exe
 ## Como utilizar
 
 ```
-jvm --mode viewer      --classpath <dir> <Classe|arquivo.class> [--output <arquivo>]
-jvm --mode interpreter --classpath <dir> <ClassePrincipal>
+jvm -v [-cp <dir>] <Classe|arquivo.class> [-o <arquivo>]
+jvm -i [-cp <dir>] <ClassePrincipal>
 jvm --help
 ```
 
 | Flag | Atalho | Descrição |
 |------|--------|-----------|
-| `--mode viewer` | `-v` | Modo leitor/exibidor: mostra as estruturas do `.class` e o bytecode |
-| `--mode interpreter` | `-i` | Modo interpretador: executa o método `main` da classe |
-| `--classpath <dir>` | `-cp <dir>` | Diretório onde ficam os arquivos `.class` |
-| `--output <arquivo>` | — | *(exibidor)* Grava a saída em arquivo em vez do terminal |
+| `--mode viewer` ou `--viewer` | `-v` | Modo leitor/exibidor: mostra as estruturas do `.class` e o bytecode |
+| `--mode interpreter` ou `--interpreter` | `-i` | Modo interpretador: executa o método `main` da classe *(Etapa 4, ainda não disponível)* |
+| `--classpath <dir>` | `-cp <dir>` | Diretório onde ficam os arquivos `.class` (padrão: diretório atual) |
+| `--output <arquivo>` | `-o <arquivo>` | *(exibidor)* Grava a saída em arquivo em vez do terminal |
 | `--help` | `-h` | Mostra a ajuda |
+| `--version` | — | Mostra a versão do programa |
+
+A classe pode ser informada pelo nome (`Exemplo`, ou `pacote.Exemplo`, procurada em `<classpath>/pacote/Exemplo.class`) ou pelo caminho do arquivo (`out/java8/Exemplo.class`).
+
+Códigos de saída: `0` sucesso, `1` argumentos inválidos, `2` funcionalidade ainda não implementada, `3` erro ao ler o `.class` ou gravar a saída.
 
 ### Exemplos
 
@@ -169,16 +171,53 @@ jvm --help
 # Exibir a estrutura e o bytecode de Exemplo.class
 ./build/jvm -v -cp out/java8 Exemplo
 
-# Executar o programa Exemplo
+# O mesmo, informando o arquivo e gravando a saída em um arquivo texto
+./build/jvm -v out/java8/Exemplo.class -o exemplo.txt
+
+# Executar o programa Exemplo (Etapa 4)
 ./build/jvm -i -cp out/java8 Exemplo
 ```
 
-No Windows (PowerShell ou `cmd`):
+No Windows, no PowerShell (que exige `.\` para executar programas da pasta atual):
 
-```bat
-jvm.exe -v -cp out\java8 Exemplo
-jvm.exe -i -cp out\java8 Exemplo
+```powershell
+.\jvm.exe -v -cp out\java8 Exemplo
+.\jvm.exe -i -cp out\java8 Exemplo
 ```
+
+No `cmd` (Prompt de Comando), o `.\` é opcional: `jvm.exe -v -cp out\java8 Exemplo`.
+
+### Saída do exibidor
+
+A saída tem formato próprio, organizado nas mesmas seções do arquivo `.class`: informações gerais, pool de constantes, interfaces, campos, métodos (com o bytecode desmontado) e atributos da classe. Trecho de exemplo:
+
+```
+[Informacoes gerais]
+  Magic:                0xCAFEBABE
+  Minor version:        0
+  Major version:        52 (Java 8)
+  Constant pool count:  60
+  Access flags:         0x0021 [ACC_PUBLIC, ACC_SUPER]
+  This class:           #9 <Flow>
+  Super class:          #10 <java/lang/Object>
+...
+[Constant pool]
+      #1 = Methodref          #10.#48        // java/lang/Object."<init>":()V
+      #2 = Class              #49            // Flow$Failure
+...
+        [0] Code (name_index #17, length 87)
+            max_stack = 3, max_locals = 2, code_length = 18
+            Bytecode:
+                  0: iload_1
+                  1: ifne            14
+                  4: new             #2 // class Flow$Failure
+                  7: dup
+                  8: ldc             #3 // String divisao por zero
+                 10: invokespecial   #4 // Method Flow$Failure."<init>":(Ljava/lang/String;)V
+                 13: athrow
+```
+
+No Windows, o programa configura o terminal para UTF-8 automaticamente, para que textos com acentos apareçam corretamente.
 
 ---
 

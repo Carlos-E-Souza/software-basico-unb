@@ -42,6 +42,18 @@ ClassFile
 - Cada atributo deve consumir exatamente `attribute_length` bytes.
 - Versões aceitas: *major* 45 a 52 (Java 1.1 a Java 8).
 
+## Exibidor (Etapa 3)
+
+| Estrutura | Arquivo | Descrição |
+|-----------|---------|-----------|
+| ::OpcodeInfo | `bytecode/opcodes.h` | Mnemônico e formato dos operandos (::OperandKind) de cada um dos 256 valores de opcode; os 202 opcodes definidos (0x00–0xC9) são válidos. Usada pelo desmontador e, depois, pelo interpretador. |
+| ::CliOptions | `cli/cli.h` | Modo (::CliMode), classpath, classe alvo e arquivo de saída obtidos da linha de comando. |
+| ::FlagContext | `viewer/format.h` | Contexto usado para decodificar flags de acesso (o mesmo bit significa coisas diferentes em classes, campos e métodos, ex.: 0x0020 é `ACC_SUPER` ou `ACC_SYNCHRONIZED`). |
+
+Fluxo do exibidor: `main` → cli_parse() → cli_resolve_class_path() →
+class_file_load() → viewer_print_class() → disassemble_code() para cada
+atributo Code.
+
 ## Interpretador (Etapa 4)
 
 *A ser preenchida nas atividades I-01 a I-02:* `Frame`, pilha de operandos,
