@@ -255,52 +255,61 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** C1.
 - **Tarefas:** carregar arquivo inteiro em memória (`fopen "rb"`); funções `read_u1/u2/u4`, `read_bytes`; erro em leitura fora dos limites (nunca *crash*).
 - **Pronto quando:** testes unitários cobrindo leitura normal, fim de buffer e arquivo inexistente.
+- **Situação:** ✅ concluída — `classfile/byte_reader.c`, `common/file_io.c`; suíte `byte_reader`.
 
 #### L-02 · Estruturas de dados do ClassFile
 - **Objetivo:** modelar em C todas as estruturas da especificação (JVMS §4).
 - **Requisitos:** L-01.
 - **Tarefas:** definir `ClassFile`, `CpInfo` (união por *tag*), `FieldInfo`, `MethodInfo`, `AttributeInfo` (união por tipo), `ExceptionTableEntry` etc.; documentar cada campo.
 - **Pronto quando:** headers compilam; aparecem na página "Estruturas de dados" do Doxygen com descrição e diagrama.
+- **Situação:** ✅ concluída — `include/classfile/class_file.h`; página `docs/estruturas.md` atualizada.
 
 #### L-03 · Cabeçalho e validação
 - **Objetivo:** ler `magic`, `minor_version`, `major_version`.
 - **Requisitos:** L-02.
 - **Tarefas:** validar `0xCAFEBABE`; aceitar *major* 45–52 (mapear para "Java 1.1 … Java 8"); rejeitar demais com mensagem clara.
 - **Pronto quando:** testes com arquivos válidos (46/50/52), magic inválido e versão não suportada.
+- **Situação:** ✅ concluída — majors 43–54 testados (45–52 aceitos).
 
 #### L-04 · Pool de constantes
 - **Objetivo:** ler o *constant pool* completo.
 - **Requisitos:** L-03.
 - **Tarefas:** tratar todas as *tags* até o Java 8: `Utf8`, `Integer`, `Float`, `Long`, `Double`, `Class`, `String`, `Fieldref`, `Methodref`, `InterfaceMethodref`, `NameAndType`, `MethodHandle`, `MethodType`, `InvokeDynamic`; `Long`/`Double` ocupam **duas entradas**; validar índices; decodificar **UTF-8 modificado** (MUTF-8); funções auxiliares para resolver nomes (`cp_get_utf8`, `cp_get_class_name`…).
 - **Pronto quando:** teste com classe contendo todos os tipos de constante (incl. `long`/`double`) lida corretamente; índices inválidos geram erro, não *crash*.
+- **Situação:** ✅ concluída — `classfile/constant_pool.c` + `common/mutf8.c`; pool idêntico ao do `javap -v` nas 26 classes de fixture (Java 2, 6 e 8), incluindo NUL e *surrogates* em MUTF-8.
 
 #### L-05 · Flags, this/super, interfaces
 - **Objetivo:** ler `access_flags`, `this_class`, `super_class`, `interfaces[]`.
 - **Requisitos:** L-04.
 - **Pronto quando:** testes com classe que estende outra e implementa 2 interfaces.
+- **Situação:** ✅ concluída — fixture `Hierarchy`.
 
 #### L-06 · Campos e métodos
 - **Objetivo:** ler `fields[]` e `methods[]`.
 - **Requisitos:** L-05.
 - **Pronto quando:** testes com campos estáticos/instância e métodos estáticos/instância/construtores.
+- **Situação:** ✅ concluída — fixture `AllConstants`.
 
 #### L-07 · Atributos
 - **Objetivo:** interpretar os atributos relevantes.
 - **Requisitos:** L-06.
 - **Tarefas:** `Code` (com `exception_table` e atributos aninhados), `ConstantValue`, `Exceptions`, `SourceFile`, `LineNumberTable`, `LocalVariableTable`, `InnerClasses`, `Synthetic`, `Deprecated`, `Signature`, `StackMapTable`, `BootstrapMethods`, `EnclosingMethod`; atributos desconhecidos guardados como bytes brutos.
 - **Pronto quando:** teste lê atributos de classes Java 2, 6 e 8 (incl. `StackMapTable` no Java 8); atributos desconhecidos não quebram a leitura.
+- **Situação:** ✅ concluída — `classfile/attributes.c`; todos os atributos listados, com validação de índices e de `attribute_length`; fixtures `Flow` e `Lambdas`.
 
 #### L-08 · Liberação de memória e robustez
 - **Objetivo:** leitor sem vazamentos e resistente a entradas inválidas.
 - **Requisitos:** L-07.
 - **Tarefas:** `class_file_free`; caminhos de erro liberam tudo; executar com ASan/UBSan (`make debug`).
 - **Pronto quando:** ASan/LeakSanitizer sem erros em todo o corpus de testes.
+- **Situação:** ✅ concluída — `make MODE=debug test` limpo; todo prefixo de um `.class` real gera `CF_ERR_TRUNCATED` sem vazamento; testes também passam no Windows (`build/unit_tests.exe`).
 
 #### L-09 · Fuzzing do leitor
 - **Objetivo:** analisar dinamicamente o leitor com libFuzzer.
 - **Requisitos:** L-08, S-03.
 - **Tarefas:** `fuzz/fuzz_reader.c` (lê a partir de buffer em memória); corpus inicial com os `.class` de teste; rodar ≥ 30 min; corrigir *crashes* e adicionar cada um como teste de regressão.
 - **Pronto quando:** sessão de fuzzing de 30 min sem *crash*/vazamento; relatório curto (cobertura, bugs encontrados) registrado em `docs/`.
+- **Situação:** ✅ concluída — 34,7 milhões de execuções em ~38 min, sem *crash*/vazamento/UB; relatório em `docs/relatorios/fuzzing-leitor.md`.
 
 ---
 

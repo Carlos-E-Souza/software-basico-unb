@@ -10,6 +10,8 @@ int test_current_failed = 0;
 
 /* Suítes registradas (uma por arquivo test_*.c). */
 void suite_version(void);
+void suite_byte_reader(void);
+void suite_class_file(void);
 
 /**
  * @brief Executa todas as suítes e informa o resultado.
@@ -26,6 +28,10 @@ int main(void)
 {
     printf("Suite: version\n");
     suite_version();
+    printf("Suite: byte_reader\n");
+    suite_byte_reader();
+    printf("Suite: class_file\n");
+    suite_class_file();
 
     printf("\n%d teste(s), %d falha(s)\n", test_count, test_failures);
     return test_failures == 0 ? 0 : 1;

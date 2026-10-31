@@ -102,14 +102,15 @@ javac -version   # deve mostrar 1.8.x
 |---------|-----------|
 | `make` | Compila o projeto com GCC (`build/jvm`) |
 | `make debug` | Compila com símbolos de depuração e sanitizers (ASan/UBSan) |
-| `make test` | Roda os testes unitários |
+| `make test` | Roda os testes unitários (compila antes as classes de `tests/fixtures` para Java 2, 6 e 8) |
+| `make fixtures` | Apenas compila as classes de `tests/fixtures` em `build/fixtures/java{2,6,8}` |
 | `make test-integration` | Roda os programas de `tests/java` na nossa JVM (Java 2, 6 e 8) e compara com a saída do `java` real |
 | `make check` | `test` + `test-integration` |
 | `make fuzz` | Compila e executa os alvos do libFuzzer com Clang (`FUZZ_TIME=60` segundos por alvo) |
 | `make fuzz-smoke` | Confirma que o libFuzzer funciona (precisa encontrar um bug proposital) |
 | `make docs` | Gera a documentação Doxygen em `build/docs/html/index.html` |
 | `make windows` | Gera `build/jvm.exe` para Windows (MinGW-w64) |
-| `make test-windows` | Testes de integração usando o `jvm.exe` (no WSL, via interoperabilidade com o Windows) |
+| `make test-windows` | Testes unitários (`unit_tests.exe`) e de integração (`jvm.exe`) executados no Windows a partir do WSL |
 | `make check-env` | Verifica se todas as ferramentas estão instaladas e as versões de bytecode geradas |
 | `make clean` | Remove os artefatos de build |
 

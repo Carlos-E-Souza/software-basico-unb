@@ -52,13 +52,22 @@ LIB_OBJ := $(patsubst src/%.c,$(BUILD)/obj/%.o,$(LIB_SRC))
 TEST_SRC := $(wildcard tests/unit/*.c)
 TEST_BIN := $(BUILD)/unit_tests
 
+# Fixtures: classes Java compiladas para Java 2, 6 e 8 (usadas nos testes e
+# como corpus inicial do fuzzer). As de tests/fixtures/java8 só existem no 8.
+JAVAC          := javac
+JAVAC_FLAGS    := -g -nowarn -Xlint:-options -encoding UTF-8
+FIXTURE_COMMON := $(wildcard tests/fixtures/common/*.java)
+FIXTURE_JAVA8  := $(wildcard tests/fixtures/java8/*.java)
+FIXTURES_DIR   := build/fixtures
+FIXTURES_STAMP := $(FIXTURES_DIR)/.stamp
+
 # Fuzzing (Clang + libFuzzer, também em C99).
 FUZZ_FLAGS   := $(STD) -g -O1 -fsanitize=fuzzer,address,undefined $(CPPFLAGS)
 FUZZ_TARGETS := $(filter-out fuzz_smoke,$(basename $(notdir $(wildcard fuzz/fuzz_*.c))))
 FUZZ_TIME    ?= 60
 
 .PHONY: all debug test test-integration check windows test-windows \
-        fuzz fuzz-smoke docs check-env clean
+        fuzz fuzz-smoke docs check-env clean fixtures
 
 all: $(BIN)
 
@@ -76,11 +85,22 @@ debug:
 	$(MAKE) MODE=debug all
 
 # ---------------------------------------------------------------- testes ----
-$(TEST_BIN): $(TEST_SRC) $(LIB_OBJ)
-	@mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) -Itests/unit $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+fixtures: $(FIXTURES_STAMP)
 
-test: $(TEST_BIN)
+$(FIXTURES_STAMP): $(FIXTURE_COMMON) $(FIXTURE_JAVA8)
+	rm -rf $(FIXTURES_DIR)
+	mkdir -p $(FIXTURES_DIR)/java2 $(FIXTURES_DIR)/java6 $(FIXTURES_DIR)/java8
+	$(JAVAC) $(JAVAC_FLAGS) -source 1.2 -target 1.2 -d $(FIXTURES_DIR)/java2 $(FIXTURE_COMMON)
+	$(JAVAC) $(JAVAC_FLAGS) -source 1.6 -target 1.6 -d $(FIXTURES_DIR)/java6 $(FIXTURE_COMMON)
+	$(JAVAC) $(JAVAC_FLAGS) -source 1.8 -target 1.8 -d $(FIXTURES_DIR)/java8 $(FIXTURE_COMMON) $(FIXTURE_JAVA8)
+	@touch $@
+
+$(TEST_BIN): $(TEST_SRC) $(wildcard tests/unit/*.h) $(LIB_OBJ)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) -Itests/unit -DFIXTURES_DIR=\"$(FIXTURES_DIR)\" $(CFLAGS) $(LDFLAGS) \
+		$(TEST_SRC) $(LIB_OBJ) -o $@ $(LDLIBS)
+
+test: $(TEST_BIN) $(FIXTURES_STAMP)
 	./$(TEST_BIN)
 
 test-integration: $(BIN)
@@ -96,7 +116,14 @@ build/jvm.exe: $(SRC) $(shell find include -name '*.h')
 	$(MINGW) $(CPPFLAGS) $(STD) $(WARN) $(WERROR) -O2 -D__USE_MINGW_ANSI_STDIO=1 \
 		$(SRC) -o $@ -static $(LDLIBS)
 
-test-windows: build/jvm.exe
+build/unit_tests.exe: $(TEST_SRC) $(wildcard tests/unit/*.h) $(LIB_SRC) $(shell find include -name '*.h')
+	@mkdir -p build
+	$(MINGW) $(CPPFLAGS) -Itests/unit -DFIXTURES_DIR=\"$(FIXTURES_DIR)\" $(STD) $(WARN) $(WERROR) \
+		-O2 -D__USE_MINGW_ANSI_STDIO=1 $(TEST_SRC) $(LIB_SRC) -o $@ -static $(LDLIBS)
+
+# Testes unitários e de integração executados no Windows (via WSL).
+test-windows: build/jvm.exe build/unit_tests.exe $(FIXTURES_STAMP)
+	./build/unit_tests.exe
 	JVM_CMD="./build/jvm.exe -i" tests/run_tests.sh
 
 # ---------------------------------------------------------------- fuzzing ---
@@ -104,16 +131,17 @@ build/fuzz/%: fuzz/%.c $(LIB_SRC)
 	@mkdir -p $(dir $@)
 	$(CLANG) $(FUZZ_FLAGS) $< $(LIB_SRC) -o $@ $(LDLIBS)
 
-fuzz: $(addprefix build/fuzz/,$(FUZZ_TARGETS))
+fuzz: $(addprefix build/fuzz/,$(FUZZ_TARGETS)) $(FIXTURES_STAMP)
 	@if [ -z "$(FUZZ_TARGETS)" ]; then \
 		echo "Nenhum alvo de fuzzing ainda (fuzz/fuzz_*.c). Use 'make fuzz-smoke'."; \
 	fi
 	@for t in $(FUZZ_TARGETS); do \
 		echo "== Fuzzing $$t por $(FUZZ_TIME)s =="; \
 		mkdir -p build/fuzz/corpus/$$t build/fuzz/artifacts/$$t fuzz/corpus/$$t; \
-		./build/fuzz/$$t -max_total_time=$(FUZZ_TIME) \
+		dict=""; [ -f fuzz/$$t.dict ] && dict="-dict=fuzz/$$t.dict"; \
+		./build/fuzz/$$t -max_total_time=$(FUZZ_TIME) $$dict \
 			-artifact_prefix=build/fuzz/artifacts/$$t/ \
-			build/fuzz/corpus/$$t fuzz/corpus/$$t || exit 1; \
+			build/fuzz/corpus/$$t fuzz/corpus/$$t $(FIXTURES_DIR) || exit 1; \
 	done
 
 fuzz-smoke: build/fuzz/fuzz_smoke
