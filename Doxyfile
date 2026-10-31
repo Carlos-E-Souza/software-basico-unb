@@ -1,0 +1,67 @@
+# =============================================================================
+# Configuração do Doxygen da JVM didática.
+# Apenas as opções diferentes do padrão estão listadas (ver docs/PLANO.md, 3.5).
+# =============================================================================
+
+#---------------------------------------------------------------- projeto ----
+PROJECT_NAME           = "JVM Didática"
+PROJECT_NUMBER         = 0.1.0
+PROJECT_BRIEF          = "Leitor/exibidor de .class e interpretador de bytecode Java em C99"
+OUTPUT_DIRECTORY       = build/docs
+OUTPUT_LANGUAGE        = Brazilian
+OPTIMIZE_OUTPUT_FOR_C  = YES
+MARKDOWN_SUPPORT       = YES
+FULL_PATH_NAMES        = YES
+STRIP_FROM_PATH        = .
+STRIP_FROM_INC_PATH    = include
+
+#-------------------------------------------------------------- extração ----
+# EXTRACT_ALL fica em NO de propósito: com YES o Doxygen deixa de avisar
+# sobre itens sem documentação. Como todo item deve ser documentado, todos
+# aparecem mesmo assim (cada função ganha sua página).
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = YES
+SEPARATE_MEMBER_PAGES  = YES
+TYPEDEF_HIDES_STRUCT   = NO
+
+#----------------------------------------------------------------- avisos ----
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+
+#---------------------------------------------------------------- entrada ----
+INPUT                  = src include docs/mainpage.md docs/estruturas.md
+FILE_PATTERNS          = *.c *.h *.md
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = docs/mainpage.md
+INPUT_ENCODING         = UTF-8
+
+#------------------------------------------- código-fonte e referências ----
+SOURCE_BROWSER         = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+REFERENCES_LINK_SOURCE = YES
+
+#------------------------------------------------------------------ saída ----
+GENERATE_HTML          = YES
+GENERATE_TREEVIEW      = YES
+GENERATE_LATEX         = NO
+
+#-------------------------------------------------------- diagramas (dot) ----
+HAVE_DOT               = YES
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+CLASS_GRAPH            = YES
+COLLABORATION_GRAPH    = YES
+UML_LOOK               = YES
+INCLUDE_GRAPH          = YES
+INCLUDED_BY_GRAPH      = YES
+DIRECTORY_GRAPH        = YES
+DOT_GRAPH_MAX_NODES    = 100
+MAX_DOT_GRAPH_DEPTH    = 0

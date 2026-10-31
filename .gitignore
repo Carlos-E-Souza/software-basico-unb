@@ -53,3 +53,16 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# ---- Projeto JVM ----
+# Artefatos de build, documentação gerada e testes
+build/
+*.class
+
+# Artefatos do libFuzzer
+crash-*
+leak-*
+timeout-*
+oom-*
+slow-unit-*
+fuzz-*.log
