@@ -57,11 +57,11 @@ static void test_access_flags(void)
 {
     char text[FLAGS_BUFFER_SIZE];
     format_access_flags(text, sizeof text, 0x0021, FLAGS_CLASS);
-    ASSERT_EQ_STR("ACC_PUBLIC, ACC_SUPER", text);
+    ASSERT_EQ_STR("public super", text);
     format_access_flags(text, sizeof text, 0x0021, FLAGS_METHOD);
-    ASSERT_EQ_STR("ACC_PUBLIC, ACC_SYNCHRONIZED", text);
+    ASSERT_EQ_STR("public synchronized", text);
     format_access_flags(text, sizeof text, 0x00C8, FLAGS_FIELD);
-    ASSERT_EQ_STR("ACC_STATIC, ACC_VOLATILE, ACC_TRANSIENT", text);
+    ASSERT_EQ_STR("static volatile transient", text);
     format_access_flags(text, sizeof text, 0x0000, FLAGS_FIELD);
     ASSERT_EQ_STR("", text);
     format_access_flags(text, 8, 0x0009, FLAGS_METHOD); /* buffer pequeno: não estoura */
@@ -107,16 +107,16 @@ static void test_disassemble_rare_instructions(void)
         return;
     }
     capture(cf);
-    ASSERT_OUTPUT_HAS("0: jsr             12");
-    ASSERT_OUTPUT_HAS("3: goto_w          13");
-    ASSERT_OUTPUT_HAS("8: iload_w         300");
-    ASSERT_OUTPUT_HAS("13: ret             1");
-    ASSERT_OUTPUT_HAS("15: iinc_w          300, -5");
-    ASSERT_OUTPUT_HAS("21: <instrucao invalida ou truncada: opcode 0xCA>");
+    ASSERT_OUTPUT_HAS("    0 jsr 12 (+12)\n");
+    ASSERT_OUTPUT_HAS("    3 goto_w 13 (+10)\n");
+    ASSERT_OUTPUT_HAS("    8 wide iload 300\n");
+    ASSERT_OUTPUT_HAS("   13 ret 1\n");
+    ASSERT_OUTPUT_HAS("   15 wide iinc 300 by -5\n");
+    ASSERT_OUTPUT_HAS("   21 <instrucao invalida ou truncada: opcode 0xCA>");
     class_file_free(cf);
 }
 
-/** @brief Saída completa de um fixture contém todas as seções e dados esperados. */
+/** @brief Saída completa de um fixture: seções, rótulos e referências ao pool no estilo do jclasslib. */
 static void test_full_output_of_fixture(void)
 {
     ClassFile *cf = NULL;
@@ -126,26 +126,53 @@ static void test_full_output_of_fixture(void)
         return;
     }
     capture(cf);
-    ASSERT_OUTPUT_HAS("Major version:        52 (Java 8)");
-    ASSERT_OUTPUT_HAS("Access flags:         0x0021 [ACC_PUBLIC, ACC_SUPER]");
-    ASSERT_OUTPUT_HAS("This class:           #9 <Flow>");
-    ASSERT_OUTPUT_HAS("[Constant pool]");
-    ASSERT_OUTPUT_HAS("= Methodref          #10.#48        // java/lang/Object.\"<init>\":()V");
-    ASSERT_OUTPUT_HAS("[Methods]");
-    ASSERT_OUTPUT_HAS("invokestatic    #6 // Method Flow.divide:(II)I");
-    ASSERT_OUTPUT_HAS("tableswitch     { // 1 a 3");
-    ASSERT_OUTPUT_HAS("lookupswitch    { // 3 par(es)");
-    ASSERT_OUTPUT_HAS("default: 37");
-    ASSERT_OUTPUT_HAS("multianewarray  #5, 2 // class \"[[I\"");
-    ASSERT_OUTPUT_HAS("any (finally)");
-    ASSERT_OUTPUT_HAS("throws #2 <Flow$Failure>");
-    ASSERT_OUTPUT_HAS("frame_type = 255 /* full_frame */");
-    ASSERT_OUTPUT_HAS("[Class attributes]");
-    ASSERT_OUTPUT_HAS("Source file: #47 <Flow.java>");
+    /* informações gerais */
+    ASSERT_OUTPUT_HAS("=== General Information ===");
+    ASSERT_OUTPUT_HAS("Major version:           52 [Java 8]");
+    ASSERT_OUTPUT_HAS("Access flags:            0x0021 [public super]");
+    ASSERT_OUTPUT_HAS("This class:              cp_info #9 <Flow>");
+    ASSERT_OUTPUT_HAS("Super class:             cp_info #10 <java/lang/Object>");
+    /* pool: índice do slot, tipo e campos com a constante representada */
+    ASSERT_OUTPUT_HAS("=== Constant Pool (count = 60) ===");
+    ASSERT_OUTPUT_HAS("  [1] CONSTANT_Methodref_info\n"
+                      "        Class name:              cp_info #10 <java/lang/Object>\n"
+                      "        Name and type:           cp_info #48 <<init> : ()V>\n");
+    ASSERT_OUTPUT_HAS("  [3] CONSTANT_String_info\n"
+                      "        String:                  cp_info #50 <divisao por zero>\n");
+    ASSERT_OUTPUT_HAS("  [15] CONSTANT_Utf8_info\n"
+                      "        Length of byte array:    6\n"
+                      "        Length of string:        6\n"
+                      "        String:                  <init>\n");
+    /* membros e atributos */
+    ASSERT_OUTPUT_HAS("=== Methods (count = 5) ===");
+    ASSERT_OUTPUT_HAS("Name:                    cp_info #22 <divide>");
+    ASSERT_OUTPUT_HAS("Descriptor:              cp_info #23 <(II)I>");
+    ASSERT_OUTPUT_HAS("Access flags:            0x0008 [static]");
+    ASSERT_OUTPUT_HAS("Attribute name index:    cp_info #17 <Code>");
+    ASSERT_OUTPUT_HAS("Maximum stack size:      3");
+    /* bytecode: mnemônicos com os argumentos do pool resolvidos */
+    ASSERT_OUTPUT_HAS("    1 invokespecial #1 <java/lang/Object.<init> : ()V>\n");
+    ASSERT_OUTPUT_HAS("    4 new #2 <Flow$Failure>\n");
+    ASSERT_OUTPUT_HAS("    8 ldc #3 <divisao por zero>\n");
+    ASSERT_OUTPUT_HAS("   24 invokestatic #6 <Flow.divide : (II)I>\n");
+    ASSERT_OUTPUT_HAS("    4 multianewarray #5 <[[I> dim 2\n");
+    ASSERT_OUTPUT_HAS("   10 newarray 11 (long)\n");
+    ASSERT_OUTPUT_HAS("    1 ifne 14 (+13)\n");
+    ASSERT_OUTPUT_HAS("   57 goto 15 (-42)\n");
+    ASSERT_OUTPUT_HAS("   37 iinc 0 by -1\n");
+    ASSERT_OUTPUT_HAS("    1 tableswitch 1 to 3\n");
+    ASSERT_OUTPUT_HAS("    1 lookupswitch 3\n");
+    ASSERT_OUTPUT_HAS("default:  37 (+36)");
+    /* tabelas e atributos */
+    ASSERT_OUTPUT_HAS("cp_info #2 <Flow$Failure>");
+    ASSERT_OUTPUT_HAS("cp_info #0 <any>");
+    ASSERT_OUTPUT_HAS("full_frame (frame_type = 255");
+    ASSERT_OUTPUT_HAS("=== Attributes (count = 2) ===");
+    ASSERT_OUTPUT_HAS("Source file name index:  cp_info #47 <Flow.java>");
     class_file_free(cf);
 }
 
-/** @brief Constantes numéricas e de texto aparecem formatadas como no Java. */
+/** @brief Constantes numéricas e de texto: bytes brutos e valores no formato do Java. */
 static void test_constant_values(void)
 {
     ClassFile *cf = NULL;
@@ -154,12 +181,47 @@ static void test_constant_values(void)
         return;
     }
     capture(cf);
-    ASSERT_OUTPUT_HAS("Major version:        46 (Java 1.2)");
-    ASSERT_OUTPUT_HAS("1234567890123l");
-    ASSERT_OUTPUT_HAS("2.718281828d");
-    ASSERT_OUTPUT_HAS("3.5f");
-    ASSERT_OUTPUT_HAS("123456789");
-    ASSERT_OUTPUT_HAS("Ola \xC3\xA9\xE4\xB8\xAD\\u0000\xF0\x9F\x98\x80!");
+    ASSERT_OUTPUT_HAS("Major version:           46 [Java 1.2]");
+    ASSERT_OUTPUT_HAS("High bytes:              0x0000011F\n"
+                      "        Low bytes:               0x71FB04CB\n"
+                      "        Long:                    1234567890123\n");
+    ASSERT_OUTPUT_HAS("(large numeric continued)");
+    ASSERT_OUTPUT_HAS("Bytes:                   0x40600000\n"
+                      "        Float:                   3.5\n");
+    ASSERT_OUTPUT_HAS("Double:                  2.718281828\n");
+    ASSERT_OUTPUT_HAS("Integer:                 123456789\n");
+    /* 18 bytes MUTF-8 (é = 2, 中 = 3, NUL = 2, emoji = 6) e 10 caracteres UTF-16
+     * (o emoji é um par de surrogates: 2 caracteres) */
+    ASSERT_OUTPUT_HAS("Length of byte array:    18\n"
+                      "        Length of string:        10\n"
+                      "        String:                  "
+                      "Ola \xC3\xA9\xE4\xB8\xAD\\u0000\xF0\x9F\x98\x80!\n");
+    ASSERT_OUTPUT_HAS("Constant value index:    cp_info #");
+    class_file_free(cf);
+}
+
+/** @brief Referência a cp_info #0 (nenhum) é escrita sem constante. */
+static void test_cp_ref_zero(void)
+{
+    ClassFile *cf = NULL;
+    FILE *tmp;
+    char out[64];
+    size_t n;
+    if (class_file_load(FIXTURES_DIR "/java8/Flow.class", &cf, NULL) != CF_OK) {
+        TEST_FAIL_("%s", "falha ao ler Flow.class");
+        return;
+    }
+    tmp = open_temp();
+    if (tmp != NULL) {
+        print_cp_ref(tmp, cf, 0);
+        fputc('|', tmp);
+        print_cp_ref(tmp, cf, 9);
+        rewind(tmp);
+        n = fread(out, 1, sizeof out - 1, tmp);
+        out[n] = '\0';
+        fclose(tmp);
+        ASSERT_EQ_STR("cp_info #0|cp_info #9 <Flow>", out);
+    }
     class_file_free(cf);
 }
 
@@ -171,4 +233,5 @@ void suite_viewer(void)
     RUN_TEST(test_disassemble_rare_instructions);
     RUN_TEST(test_full_output_of_fixture);
     RUN_TEST(test_constant_values);
+    RUN_TEST(test_cp_ref_zero);
 }

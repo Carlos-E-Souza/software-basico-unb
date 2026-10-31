@@ -22,30 +22,30 @@ enum {
 /** @brief Uma flag de acesso: bit, nome e contextos em que é válida. */
 typedef struct FlagName {
     uint16_t bit;     /**< Valor do bit. */
-    const char *name; /**< Nome na especificação. */
+    const char *name; /**< Nome exibido (como no jclasslib). */
     int contexts;     /**< Combinação de CTX_*. */
 } FlagName;
 
 /** @brief Tabela das flags de acesso, na ordem usada para exibição. */
 static const FlagName FLAG_NAMES[] = {
-    {ACC_PUBLIC, "ACC_PUBLIC", CTX_C | CTX_F | CTX_M | CTX_I},
-    {ACC_PRIVATE, "ACC_PRIVATE", CTX_F | CTX_M | CTX_I},
-    {ACC_PROTECTED, "ACC_PROTECTED", CTX_F | CTX_M | CTX_I},
-    {ACC_STATIC, "ACC_STATIC", CTX_F | CTX_M | CTX_I},
-    {ACC_FINAL, "ACC_FINAL", CTX_C | CTX_F | CTX_M | CTX_I},
-    {ACC_SUPER, "ACC_SUPER", CTX_C},
-    {ACC_SYNCHRONIZED, "ACC_SYNCHRONIZED", CTX_M},
-    {ACC_VOLATILE, "ACC_VOLATILE", CTX_F},
-    {ACC_BRIDGE, "ACC_BRIDGE", CTX_M},
-    {ACC_TRANSIENT, "ACC_TRANSIENT", CTX_F},
-    {ACC_VARARGS, "ACC_VARARGS", CTX_M},
-    {ACC_NATIVE, "ACC_NATIVE", CTX_M},
-    {ACC_INTERFACE, "ACC_INTERFACE", CTX_C | CTX_I},
-    {ACC_ABSTRACT, "ACC_ABSTRACT", CTX_C | CTX_M | CTX_I},
-    {ACC_STRICT, "ACC_STRICT", CTX_M},
-    {ACC_SYNTHETIC, "ACC_SYNTHETIC", CTX_C | CTX_F | CTX_M | CTX_I},
-    {ACC_ANNOTATION, "ACC_ANNOTATION", CTX_C | CTX_I},
-    {ACC_ENUM, "ACC_ENUM", CTX_C | CTX_F | CTX_I},
+    {ACC_PUBLIC, "public", CTX_C | CTX_F | CTX_M | CTX_I},
+    {ACC_PRIVATE, "private", CTX_F | CTX_M | CTX_I},
+    {ACC_PROTECTED, "protected", CTX_F | CTX_M | CTX_I},
+    {ACC_STATIC, "static", CTX_F | CTX_M | CTX_I},
+    {ACC_FINAL, "final", CTX_C | CTX_F | CTX_M | CTX_I},
+    {ACC_SUPER, "super", CTX_C},
+    {ACC_SYNCHRONIZED, "synchronized", CTX_M},
+    {ACC_VOLATILE, "volatile", CTX_F},
+    {ACC_BRIDGE, "bridge", CTX_M},
+    {ACC_TRANSIENT, "transient", CTX_F},
+    {ACC_VARARGS, "varargs", CTX_M},
+    {ACC_NATIVE, "native", CTX_M},
+    {ACC_INTERFACE, "interface", CTX_C | CTX_I},
+    {ACC_ABSTRACT, "abstract", CTX_C | CTX_M | CTX_I},
+    {ACC_STRICT, "strict", CTX_M},
+    {ACC_SYNTHETIC, "synthetic", CTX_C | CTX_F | CTX_M | CTX_I},
+    {ACC_ANNOTATION, "annotation", CTX_C | CTX_I},
+    {ACC_ENUM, "enum", CTX_C | CTX_F | CTX_I},
 };
 
 void format_access_flags(char *buffer, size_t size, uint16_t flags,
@@ -61,7 +61,7 @@ void format_access_flags(char *buffer, size_t size, uint16_t flags,
         const FlagName *f = &FLAG_NAMES[i];
         if ((flags & f->bit) != 0 && (f->contexts & mask) != 0) {
             int n = snprintf(buffer + used, size - used, "%s%s",
-                             used > 0 ? ", " : "", f->name);
+                             used > 0 ? " " : "", f->name);
             if (n < 0 || (size_t)n >= size - used) {
                 return; /* buffer cheio: resultado truncado */
             }
@@ -143,31 +143,30 @@ void print_mutf8(FILE *out, const char *bytes, size_t length)
 }
 
 /**
- * @brief Escreve um nome, entre aspas se não for um identificador comum.
+ * @brief Escreve um texto Utf8 do pool a partir do seu índice.
  *
- * @details **Algoritmo:** nomes que começam com '<' (`<init>`, `<clinit>`)
- * ou '[' (tipos de array) são escritos entre aspas, como faz o `javap`.
+ * @details **Algoritmo:** obtém a entrada com cp_get_utf8() e a escreve com
+ * print_mutf8(); índice inválido escreve "invalido".
  *
- * @param[in] out  Fluxo de saída.
- * @param[in] name Nome MUTF-8 (string C).
+ * @param[in] out        Fluxo de saída.
+ * @param[in] class_file Classe.
+ * @param[in] index      Índice de um `CONSTANT_Utf8`.
  */
-static void print_name(FILE *out, const char *name)
+static void print_utf8_at(FILE *out, const ClassFile *class_file, uint16_t index)
 {
-    int quote = (name[0] == '<' || name[0] == '[');
-    if (quote) {
-        fputc('"', out);
+    const char *text = cp_get_utf8(class_file, index);
+    if (text == NULL) {
+        fputs("invalido", out);
+        return;
     }
-    print_mutf8(out, name, strlen(name));
-    if (quote) {
-        fputc('"', out);
-    }
+    print_mutf8(out, text, class_file->constant_pool[index].info.utf8.length);
 }
 
 /**
- * @brief Escreve `nome:descritor` de um NameAndType.
+ * @brief Escreve `nome : descritor` de um NameAndType.
  *
- * @details **Algoritmo:** resolve com cp_get_name_and_type() e escreve o
- * nome com print_name().
+ * @details **Algoritmo:** escreve os dois Utf8 apontados pela entrada,
+ * separados por " : ", como no jclasslib.
  *
  * @param[in] out        Fluxo de saída.
  * @param[in] class_file Classe.
@@ -176,14 +175,15 @@ static void print_name(FILE *out, const char *name)
 static void print_name_and_type(FILE *out, const ClassFile *class_file,
                                 uint16_t index)
 {
-    const char *name, *descriptor;
-    if (!cp_get_name_and_type(class_file, index, &name, &descriptor)) {
-        fputs("<invalido>", out);
+    const CpNameAndType *nt;
+    if (!cp_check(class_file, index, CONSTANT_NameAndType)) {
+        fputs("invalido", out);
         return;
     }
-    print_name(out, name);
-    fputc(':', out);
-    print_mutf8(out, descriptor, strlen(descriptor));
+    nt = &class_file->constant_pool[index].info.name_and_type;
+    print_utf8_at(out, class_file, nt->name_index);
+    fputs(" : ", out);
+    print_utf8_at(out, class_file, nt->descriptor_index);
 }
 
 /** @brief Nomes de `reference_kind` de MethodHandle, indexados de 1 a 9. */
@@ -193,14 +193,18 @@ static const char *const REFERENCE_KINDS[] = {
     "REF_newInvokeSpecial", "REF_invokeInterface"
 };
 
+const char *method_handle_kind_name(uint8_t kind)
+{
+    return REFERENCE_KINDS[(kind >= 1 && kind <= 9) ? kind : 0];
+}
+
 void print_constant(FILE *out, const ClassFile *class_file, uint16_t index)
 {
     const CpInfo *e;
     char number[NUMBER_FORMAT_SIZE];
-    const char *class_name, *name, *descriptor;
 
     if (cp_tag(class_file, index) == CONSTANT_Unusable) {
-        fputs("<invalido>", out);
+        fputs("invalido", out);
         return;
     }
     e = &class_file->constant_pool[index];
@@ -218,38 +222,32 @@ void print_constant(FILE *out, const ClassFile *class_file, uint16_t index)
         float v = 0;
         cp_get_float(class_file, index, &v);
         java_format_float(number, sizeof number, v);
-        fprintf(out, "%sf", number);
+        fputs(number, out);
         break;
     }
     case CONSTANT_Long: {
         int64_t v = 0;
         cp_get_long(class_file, index, &v);
-        fprintf(out, "%" PRId64 "l", v);
+        fprintf(out, "%" PRId64, v);
         break;
     }
     case CONSTANT_Double: {
         double v = 0;
         cp_get_double(class_file, index, &v);
         java_format_double(number, sizeof number, v);
-        fprintf(out, "%sd", number);
+        fputs(number, out);
         break;
     }
     case CONSTANT_Class:
-        print_name(out, cp_get_class_name(class_file, index));
+        print_utf8_at(out, class_file, e->info.class_name_index);
         break;
-    case CONSTANT_String: {
-        const CpUtf8 *u = &class_file->constant_pool[e->info.string_index].info.utf8;
-        print_mutf8(out, u->bytes, u->length);
+    case CONSTANT_String:
+        print_utf8_at(out, class_file, e->info.string_index);
         break;
-    }
     case CONSTANT_Fieldref:
     case CONSTANT_Methodref:
     case CONSTANT_InterfaceMethodref:
-        if (!cp_get_ref(class_file, index, &class_name, &name, &descriptor)) {
-            fputs("<invalido>", out);
-            break;
-        }
-        print_name(out, class_name);
+        print_constant(out, class_file, e->info.ref.class_index);
         fputc('.', out);
         print_name_and_type(out, class_file, e->info.ref.name_and_type_index);
         break;
@@ -258,40 +256,51 @@ void print_constant(FILE *out, const ClassFile *class_file, uint16_t index)
         break;
     case CONSTANT_MethodHandle: {
         uint8_t kind = e->info.method_handle.reference_kind;
-        fprintf(out, "%s ", REFERENCE_KINDS[kind <= 9 ? kind : 0]);
+        fprintf(out, "%s ", method_handle_kind_name(kind));
         print_constant(out, class_file, e->info.method_handle.reference_index);
         break;
     }
     case CONSTANT_MethodType:
-        print_constant(out, class_file, e->info.method_type_index);
+        print_utf8_at(out, class_file, e->info.method_type_index);
         break;
     case CONSTANT_InvokeDynamic:
-        fprintf(out, "#%u:", (unsigned)e->info.invoke_dynamic.bootstrap_method_attr_index);
         print_name_and_type(out, class_file, e->info.invoke_dynamic.name_and_type_index);
+        fprintf(out, ", BootstrapMethods #%u",
+                (unsigned)e->info.invoke_dynamic.bootstrap_method_attr_index);
         break;
     case CONSTANT_Unusable:
         break;
     }
 }
 
-const char *constant_kind_label(const ClassFile *class_file, uint16_t index)
+void print_cp_ref(FILE *out, const ClassFile *class_file, uint16_t index)
 {
-    switch (cp_tag(class_file, index)) {
-    case CONSTANT_Utf8:               return "Utf8";
-    case CONSTANT_Integer:            return "int";
-    case CONSTANT_Float:              return "float";
-    case CONSTANT_Long:               return "long";
-    case CONSTANT_Double:             return "double";
-    case CONSTANT_Class:              return "class";
-    case CONSTANT_String:             return "String";
-    case CONSTANT_Fieldref:           return "Field";
-    case CONSTANT_Methodref:          return "Method";
-    case CONSTANT_InterfaceMethodref: return "InterfaceMethod";
-    case CONSTANT_NameAndType:        return "NameAndType";
-    case CONSTANT_MethodHandle:       return "MethodHandle";
-    case CONSTANT_MethodType:         return "MethodType";
-    case CONSTANT_InvokeDynamic:      return "InvokeDynamic";
+    fprintf(out, "cp_info #%u", (unsigned)index);
+    if (index != 0) {
+        fputs(" <", out);
+        print_constant(out, class_file, index);
+        fputc('>', out);
+    }
+}
+
+const char *constant_info_name(ConstantTag tag)
+{
+    switch (tag) {
+    case CONSTANT_Utf8:               return "CONSTANT_Utf8_info";
+    case CONSTANT_Integer:            return "CONSTANT_Integer_info";
+    case CONSTANT_Float:              return "CONSTANT_Float_info";
+    case CONSTANT_Long:               return "CONSTANT_Long_info";
+    case CONSTANT_Double:             return "CONSTANT_Double_info";
+    case CONSTANT_Class:              return "CONSTANT_Class_info";
+    case CONSTANT_String:             return "CONSTANT_String_info";
+    case CONSTANT_Fieldref:           return "CONSTANT_Fieldref_info";
+    case CONSTANT_Methodref:          return "CONSTANT_Methodref_info";
+    case CONSTANT_InterfaceMethodref: return "CONSTANT_InterfaceMethodref_info";
+    case CONSTANT_NameAndType:        return "CONSTANT_NameAndType_info";
+    case CONSTANT_MethodHandle:       return "CONSTANT_MethodHandle_info";
+    case CONSTANT_MethodType:         return "CONSTANT_MethodType_info";
+    case CONSTANT_InvokeDynamic:      return "CONSTANT_InvokeDynamic_info";
     case CONSTANT_Unusable:           break;
     }
-    return "?";
+    return "(large numeric continued)";
 }

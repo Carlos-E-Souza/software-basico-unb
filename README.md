@@ -100,16 +100,16 @@ javac -version   # deve mostrar 1.8.x
 | `make test` | Roda os testes unitários (compila antes as classes de `tests/fixtures` para Java 2, 6 e 8) |
 | `make fixtures` | Apenas compila as classes de `tests/fixtures` em `build/fixtures/java{2,6,8}` |
 | `make test-integration` | Roda os programas de `tests/java` na nossa JVM (Java 2, 6 e 8) e compara com a saída do `java` real |
-| `make test-viewer` | Compara o conteúdo exibido (pool de constantes e bytecode) com o `javap` em todos os fixtures |
+| `make test-viewer` | Compara o conteúdo exibido (pool de constantes, bytecode e valores das constantes nos argumentos) com o `javap` em todos os fixtures |
 | `make check` | `test` + `test-viewer` + `test-integration` |
 | `make fuzz` | Compila e executa os alvos do libFuzzer com Clang (`FUZZ_TIME=60` segundos por alvo) |
 | `make fuzz-checkpoint` | Sessão de fuzzing dos checkpoints: 10 minutos por alvo (`FUZZ_CHECKPOINT_TIME=600`) |
 | `make fuzz-smoke` | Confirma que o libFuzzer funciona (precisa encontrar um bug proposital) |
-| `make docs` | Gera a documentação Doxygen em `build/docs/html/index.html` |
+| `make docs` | Gera a documentação Doxygen em `docs/html/index.html` |
 | `make windows` | Gera `build/jvm.exe` para Windows (MinGW-w64) |
 | `make test-windows` | Testes unitários (`unit_tests.exe`) e de integração (`jvm.exe`) executados no Windows a partir do WSL |
 | `make check-env` | Verifica se todas as ferramentas estão instaladas e as versões de bytecode geradas |
-| `make clean` | Remove os artefatos de build |
+| `make clean` | Remove os artefatos de build (`build/`) e a documentação gerada (`docs/html/`) |
 
 ### Gerando `.class` de teste
 
@@ -189,32 +189,45 @@ No `cmd` (Prompt de Comando), o `.\` é opcional: `jvm.exe -v -cp out\java8 Exem
 
 ### Saída do exibidor
 
-A saída tem formato próprio, organizado nas mesmas seções do arquivo `.class`: informações gerais, pool de constantes, interfaces, campos, métodos (com o bytecode desmontado) e atributos da classe. Trecho de exemplo:
+A saída segue a organização do visualizador **jclasslib**: `General Information`, `Constant Pool`, `Interfaces`, `Fields`, `Methods` e `Attributes`, com os mesmos rótulos. Toda referência ao pool de constantes mostra o **índice do slot** e a **constante representada** (`cp_info #10 <java/lang/Object>`), e os argumentos do bytecode que apontam para o pool mostram o **valor da constante** (`invokespecial #1 <java/lang/Object.<init> : ()V>`). Trecho de exemplo:
 
 ```
-[Informacoes gerais]
-  Magic:                0xCAFEBABE
-  Minor version:        0
-  Major version:        52 (Java 8)
-  Constant pool count:  60
-  Access flags:         0x0021 [ACC_PUBLIC, ACC_SUPER]
-  This class:           #9 <Flow>
-  Super class:          #10 <java/lang/Object>
+=== General Information ===
+  Magic:                   0xCAFEBABE
+  Minor version:           0
+  Major version:           52 [Java 8]
+  Constant pool count:     60
+  Access flags:            0x0021 [public super]
+  This class:              cp_info #9 <Flow>
+  Super class:             cp_info #10 <java/lang/Object>
 ...
-[Constant pool]
-      #1 = Methodref          #10.#48        // java/lang/Object."<init>":()V
-      #2 = Class              #49            // Flow$Failure
+=== Constant Pool (count = 60) ===
+  [1] CONSTANT_Methodref_info
+        Class name:              cp_info #10 <java/lang/Object>
+        Name and type:           cp_info #48 <<init> : ()V>
+  [2] CONSTANT_Class_info
+        Class name:              cp_info #49 <Flow$Failure>
 ...
-        [0] Code (name_index #17, length 87)
-            max_stack = 3, max_locals = 2, code_length = 18
+=== Methods (count = 5) ===
+  [1] divide
+        Name:                    cp_info #22 <divide>
+        Descriptor:              cp_info #23 <(II)I>
+        Access flags:            0x0008 [static]
+        Attributes count:        2
+        [0] Code
+            Attribute name index:    cp_info #17 <Code>
+            Attribute length:        87
+            Maximum stack size:      3
+            Maximum local variables: 2
+            Code length:             18
             Bytecode:
-                  0: iload_1
-                  1: ifne            14
-                  4: new             #2 // class Flow$Failure
-                  7: dup
-                  8: ldc             #3 // String divisao por zero
-                 10: invokespecial   #4 // Method Flow$Failure."<init>":(Ljava/lang/String;)V
-                 13: athrow
+                  0 iload_1
+                  1 ifne 14 (+13)
+                  4 new #2 <Flow$Failure>
+                  7 dup
+                  8 ldc #3 <divisao por zero>
+                 10 invokespecial #4 <Flow$Failure.<init> : (Ljava/lang/String;)V>
+                 13 athrow
 ```
 
 No Windows, o programa configura o terminal para UTF-8 automaticamente, para que textos com acentos apareçam corretamente.

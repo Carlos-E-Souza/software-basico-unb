@@ -19,10 +19,11 @@
 | R6 | **Doxygen** gerando: página por função, diagrama de comunicação entre funções, descrição das principais estruturas; para cada função: nome, objetivo, parâmetros de entrada, parâmetros de saída, algoritmo, links para chamadoras e chamadas | `Doxyfile` configurado (seção 3.5) + modelo de comentário obrigatório (seção 3.4) |
 | R7 | Comentários escritos **junto com o código**, em qualquer etapa | Definição de pronto de toda atividade exige comentários Doxygen completos |
 | R8 | Comentários/documentação em **português do Brasil**; identificadores em **inglês** | Convenção de código (seção 3.4) + revisão em todo checkpoint |
+| R9 | Exibidor **similar ao jclasslib**: apresentar as estruturas do `.class`; incluir os **índices dos slots do pool** e a **constante representada**; mnemônicos com seus parâmetros, e os parâmetros que apontam para o pool devem indicar o **valor da constante** | Saída organizada como o jclasslib (General Information, Constant Pool, Interfaces, Fields, Methods, Attributes); toda referência ao pool escrita como `cp_info #n <constante>`; bytecode como `invokevirtual #4 <java/io/PrintStream.println : (I)V>` (E-02 a E-05) |
 
 ### 1.2 O que será avaliado
 
-1. **Leitor de `.class` e exibidor de bytecode** — exibir as estruturas montadas após a leitura e os mnemônicos associados aos bytecodes.
+1. **Leitor de `.class` e exibidor de bytecode** — exibir as estruturas montadas após a leitura e os mnemônicos associados aos bytecodes, de forma similar ao **jclasslib** (índices do pool com a constante representada; argumentos do bytecode que apontam para o pool com o valor da constante) — requisito R9.
 2. **Corretude da máquina virtual** — interpretar:
    - instruções de **categoria 1 e 2** (tipos computacionais da especificação: cat. 1 = `int`, `float`, `reference`, `returnAddress`; cat. 2 = `long`, `double`);
    - **arrays** (todos os tipos, inclusive multidimensionais);
@@ -57,10 +58,10 @@
 | D9 | **Escopo = somente o que está na lista de avaliação (seção 1.2).** Ficam fora: `invokedynamic`/lambdas, `Math`, `Integer`/wrappers, `Scanner`/entrada de dados, threads, reflexão, GC. O leitor/exibidor reconhece `invokedynamic`; o interpretador reporta "não suportado". Natives são implementados apenas na medida exigida por strings, impressão e exceções. **(Confirmado.)** | Concatenação de strings no Java 8 ainda usa `StringBuilder` (indy só no Java 9+), logo não é afetada. |
 | D10 | `jsr`/`ret`/`jsr_w` **devem** ser implementados. | Verificado no setup: o `javac` 8 com `-target 1.2` **não** gera `jsr/ret` (inlina o `finally`), mas compiladores antigos (≤ 1.4.1) geram. Como não sabemos como os testes do professor são gerados (D13), a implementação é mantida. Diferença observada: com `-target 1.2` a concatenação usa `StringBuffer`; com 1.6/1.8 usa `StringBuilder`. |
 | D11 | Framework de testes unitários **próprio e mínimo** em C (macros `ASSERT_*`), sem dependências. | Simples de compilar com GCC em qualquer SO. |
-| D12 | **Formato de saída do exibidor é livre.** Usaremos um formato próprio, hierárquico e legível, inspirado no `javap -v`/jclasslib; a comparação com o `javap` é de **conteúdo**, não de formatação. **(Confirmado.)** | Liberdade de formato informada. |
+| D12 | **Formato de saída do exibidor similar ao jclasslib** (requisito R9): mesmas seções e rótulos, `cp_info #n <constante>` em toda referência ao pool, bytecode no formato `pc mnemônico #n <constante>`. O `javap` continua sendo a referência independente de **conteúdo** (`make test-viewer`). **(Revisada:** inicialmente o formato era livre e inspirado no `javap`.) | Critério de avaliação recebido depois da 1ª versão do exibidor. |
 | D13 | Como **não se sabe como os testes de "Java 2" serão gerados**, o leitor e o interpretador aceitam **qualquer major de 45 a 52**, e o corpus de testes de Java 2 é gerado de duas formas: `javac` 8 com `-target 1.2` e, se possível, um JDK antigo (1.3/1.4). | Cobre as diferenças de geração de código entre compiladores (ex.: `jsr/ret`, `StringBuffer`). |
 | D14 | Sem cronograma com datas; a ordem é dada pelas dependências (seção 5) e pelos checkpoints. **(Confirmado.)** | Informado pelo usuário. |
-| D15 | **Fuzzing:** `make fuzz` (60 s) no dia a dia, depois de mudanças; sessões de **10 minutos** (`make fuzz-checkpoint`) em cada checkpoint, registradas em `docs/relatorios/`. **(Confirmado.)** | A cobertura praticamente estabiliza nos primeiros minutos; sessões mais longas trazem pouco ganho. |
+| D15 | **Fuzzing:** `make fuzz` (60 s) no dia a dia, depois de mudanças; sessões de **10 minutos** (`make fuzz-checkpoint`) em cada checkpoint, registradas em `plans/relatorios/`. **(Confirmado.)** | A cobertura praticamente estabiliza nos primeiros minutos; sessões mais longas trazem pouco ganho. |
 
 ---
 
@@ -73,10 +74,13 @@ software-basico-unb/
 ├── Makefile                # build, debug, test, fuzz, docs, windows, clean
 ├── Doxyfile                # configuração do Doxygen
 ├── README.md               # como compilar/usar
-├── docs/
+├── docs/                   # documentação Doxygen
+│   ├── mainpage.md         # página principal (fonte)
+│   ├── estruturas.md       # página das principais estruturas de dados (fonte)
+│   └── html/               # documentação gerada por `make docs`
+├── plans/
 │   ├── PLANO.md            # este documento
-│   ├── mainpage.md         # página principal do Doxygen
-│   └── estruturas.md       # página das principais estruturas de dados
+│   └── relatorios/         # relatórios (ex.: sessões de fuzzing)
 ├── include/                # headers públicos (.h)
 ├── src/
 │   ├── main.c              # entrada + parsing de flags
@@ -211,7 +215,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Objetivo:** gerar documentação com diagramas.
 - **Requisitos:** S-01.
 - **Tarefas:** instalar `doxygen` e `graphviz`; criar `Doxyfile` com as opções da seção 3.5; documentar o `hello.c` com o modelo 3.4.
-- **Pronto quando:** `make docs` gera `build/docs/html/index.html` em português, com página da função contendo objetivo, parâmetros, algoritmo, **grafo de chamadas e de chamadoras**.
+- **Pronto quando:** `make docs` gera `docs/html/index.html` em português, com página da função contendo objetivo, parâmetros, algoritmo, **grafo de chamadas e de chamadoras**.
 - **Situação:** ✅ concluída — Doxygen 1.15.0 + Graphviz 14.1.2; função sem documentação faz `make docs` falhar.
 
 #### S-05 · Java (JDK) e versões de bytecode
@@ -309,8 +313,8 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Objetivo:** analisar dinamicamente o leitor com libFuzzer.
 - **Requisitos:** L-08, S-03.
 - **Tarefas:** `fuzz/fuzz_reader.c` (lê a partir de buffer em memória); corpus inicial com os `.class` de teste; rodar ≥ 10 min (`make fuzz-checkpoint`); corrigir *crashes* e adicionar cada um como teste de regressão.
-- **Pronto quando:** sessão de fuzzing de 10 min sem *crash*/vazamento; relatório curto (cobertura, bugs encontrados) registrado em `docs/`.
-- **Situação:** ✅ concluída — 34,7 milhões de execuções em ~38 min, sem *crash*/vazamento/UB; relatório em `docs/relatorios/fuzzing-leitor-exibidor.md`.
+- **Pronto quando:** sessão de fuzzing de 10 min sem *crash*/vazamento; relatório curto (cobertura, bugs encontrados) registrado em `plans/relatorios/`.
+- **Situação:** ✅ concluída — 34,7 milhões de execuções em ~38 min, sem *crash*/vazamento/UB; relatório em `plans/relatorios/fuzzing-leitor-exibidor.md`.
 
 ---
 
@@ -324,29 +328,29 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Situação:** ✅ concluída — `bytecode/opcodes.c` (compartilhado com o interpretador), incluindo `bytecode_instruction_length()` com alinhamento de `switch` e `wide`; suíte `opcodes`.
 
 #### E-02 · Informações gerais
-- **Objetivo:** definir o formato próprio de saída (D12) e exibir minor/major (com nome da versão Java), tamanho do pool, flags decodificadas, this/super, contagens.
+- **Objetivo:** exibir, como na aba *General Information* do jclasslib, minor/major (com nome da versão Java), tamanho do pool, flags decodificadas, this/super como `cp_info #n <constante>` e as contagens.
 - **Requisitos:** L-07.
-- **Pronto quando:** saída conferida manualmente com `javap -v` para 3 classes (uma de cada versão).
-- **Situação:** ✅ concluída — `viewer/printer.c`; formato próprio descrito no README.
+- **Pronto quando:** saída conferida com `javap -v` para 3 classes (uma de cada versão) e no formato do jclasslib (R9).
+- **Situação:** ✅ concluída — `viewer/printer.c` (seção `General Information`).
 
 #### E-03 · Pool de constantes
-- **Objetivo:** exibir cada entrada com índice, tipo e valor **resolvido** (ex.: `#7 = Methodref #2.#15 // java/io/PrintStream.println:(Ljava/lang/String;)V`).
+- **Objetivo:** exibir cada entrada como no jclasslib: índice do slot e estrutura (`[7] CONSTANT_Methodref_info`) e seus campos, cada referência como `cp_info #n <constante>` (ex.: `Class name: cp_info #2 <java/io/PrintStream>`, `Name and type: cp_info #15 <println : (I)V>`); Utf8 com tamanho em bytes e em caracteres; numéricos com bytes brutos e valor; segunda posição de Long/Double como `(large numeric continued)`.
 - **Requisitos:** E-02.
-- **Pronto quando:** comparação com `javap -v` sem divergências de conteúdo.
-- **Situação:** ✅ concluída — referências e valores resolvidos idênticos ao `javap` (inclusive `float`/`double` no formato do Java, via `common/number_format.c`).
+- **Pronto quando:** comparação com `javap -v` sem divergências de conteúdo (índices, tipos, referências e valores).
+- **Situação:** ✅ concluída — `viewer/printer.c` + `viewer/format.c`; valores numéricos no formato do Java via `common/number_format.c`.
 
 #### E-04 · Interfaces, campos e métodos
-- **Objetivo:** exibir nome, descritor, flags e atributos de cada item.
+- **Objetivo:** exibir nome e descritor (`cp_info #n <constante>`), flags (`0x0009 [public static]`) e atributos de cada item; cada atributo com *Attribute name index*, *Attribute length* e o conteúdo específico, como no jclasslib.
 - **Requisitos:** E-03.
 - **Pronto quando:** idem E-03.
-- **Situação:** ✅ concluída — nome, descritor, flags decodificadas por contexto e atributos.
+- **Situação:** ✅ concluída — flags decodificadas por contexto.
 
 #### E-05 · Atributos e bytecode (disassembler)
 - **Objetivo:** exibir atributos e o código com mnemônicos.
 - **Requisitos:** E-01, E-04.
-- **Tarefas:** para cada instrução: *offset*, mnemônico, operandos (índices do pool resolvidos, destinos de desvio em endereço absoluto, tabelas de `switch`, `wide`); `exception_table`, `LineNumberTable`, `LocalVariableTable`.
-- **Pronto quando:** *disassembly* de todo o corpus confere com `javap -c -v` (script de comparação semiautomática).
-- **Situação:** ✅ concluída — `viewer/disassembler.c`; `make test-viewer` (`tools/compare_javap.sh`) confere pool e bytecode das 29 classes de fixture sem divergências; 167 opcodes distintos nos fixtures e os demais (`jsr`, `ret`, `goto_w`, `wide`...) em testes com bytecode montado à mão.
+- **Tarefas:** para cada instrução, no formato do jclasslib: *offset*, mnemônico e argumentos — os que apontam para o pool como `#n <constante>` com o valor resolvido (ex.: `invokespecial #1 <java/lang/Object.<init> : ()V>`, `ldc #3 <texto>`, `new #2 <Classe>`); desvios como `alvo (+deslocamento)`; `iinc i by c`; `newarray 10 (int)`; casos de `switch`; `wide`. Tabela de exceções (`Nr. Start PC End PC Handler PC Catch Type`), `LineNumberTable`, `LocalVariableTable`, `StackMapTable` etc.
+- **Pronto quando:** *disassembly* de todo o corpus confere com `javap -c -v` (pc, mnemônico, argumentos e **valor resolvido** de cada argumento do pool).
+- **Situação:** ✅ concluída — `viewer/disassembler.c`; `make test-viewer` (`tools/compare_javap.sh`) confere pool, bytecode e valores resolvidos das 29 classes de fixture sem divergências; 167 opcodes distintos nos fixtures e os demais (`jsr`, `ret`, `goto_w`, `wide`...) em testes com bytecode montado à mão.
 
 #### E-06 · Integração com a CLI
 - **Objetivo:** modo leitor/exibidor acessível pelas flags.
@@ -358,6 +362,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 > ### ✅ CHECKPOINT C2 — Leitor/Exibidor (1ª entrega)
 > - [x] Lê corretamente `.class` de Java 2, 6 e 8
 > - [x] Exibe todas as estruturas e o bytecode com mnemônicos
+> - [x] Saída similar ao jclasslib: índices do pool com a constante representada e argumentos do bytecode com o valor da constante (R9)
 > - [x] Saída conferida contra `javap` em todo o corpus
 > - [x] Fuzzing do leitor sem *crashes*; ASan sem vazamentos
 > - [x] Funciona no Windows com as flags
@@ -469,7 +474,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 
 > ### ✅ CHECKPOINT C4 — Entrega final
 > - [ ] Todos os itens da seção 1.2 demonstráveis
-> - [ ] Requisitos R1–R8 verificados (checklist da seção 1.1)
+> - [ ] Requisitos R1–R9 verificados (checklist da seção 1.1)
 > - [ ] *Tag* git `v3.0-final`
 
 ---
@@ -509,7 +514,7 @@ Paralelização possível em equipe: E-01 junto com L-03…L-07; I-13/I-14 (nati
 |---|----------|----------|------------------|
 | 1 | Clang apenas para o fuzzing? | Sim | D1 |
 | 2 | Compilar no Windows ou só executar? | Basta o `jvm.exe` executar no Windows | D2, S-02 |
-| 3 | Formato do exibidor? | Livre | D12, E-02 |
+| 3 | Formato do exibidor? | Livre (depois: similar ao jclasslib, ver R9) | D12, E-02 |
 | 4 | Como serão gerados os testes de Java 2? | Desconhecido | D13, S-05, riscos |
 | 5 | `invokedynamic`, `Math`, `Integer`, `Scanner`? | Fora do escopo (só o que está na avaliação) | D9 |
 | 6 | Equipe e prazos? | Não é necessário | D14 |

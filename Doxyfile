@@ -1,13 +1,13 @@
 # =============================================================================
-# Configuração do Doxygen da JVM didática.
+# Configuração do Doxygen da JVM Software Básico.
 # Apenas as opções diferentes do padrão estão listadas.
 # =============================================================================
 
 #---------------------------------------------------------------- projeto ----
-PROJECT_NAME           = "JVM Didática"
+PROJECT_NAME           = "JVM Software Básico"
 PROJECT_NUMBER         = 0.1.0
 PROJECT_BRIEF          = "Leitor/exibidor de .class e interpretador de bytecode Java em C99"
-OUTPUT_DIRECTORY       = build/docs
+OUTPUT_DIRECTORY       = docs
 OUTPUT_LANGUAGE        = Brazilian
 OPTIMIZE_OUTPUT_FOR_C  = YES
 MARKDOWN_SUPPORT       = YES

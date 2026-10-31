@@ -13,9 +13,9 @@
 #   make fuzz          Compila e roda os alvos do libFuzzer (Clang), FUZZ_TIME=60 s
 #   make fuzz-checkpoint  Sessão de fuzzing dos checkpoints (10 min por alvo)
 #   make fuzz-smoke    Verifica se o libFuzzer encontra o bug proposital
-#   make docs          Gera a documentação Doxygen em build/docs/html
+#   make docs          Gera a documentação Doxygen em docs/html
 #   make check-env     Verifica as ferramentas instaladas
-#   make clean         Remove build/
+#   make clean         Remove build/ e a documentação gerada (docs/html)
 # =============================================================================
 
 CC     := gcc
@@ -167,13 +167,12 @@ fuzz-smoke: build/fuzz/fuzz_smoke
 
 # ------------------------------------------------------------ documentação --
 docs:
-	@mkdir -p build/docs
 	doxygen Doxyfile
-	@echo "Documentacao gerada em build/docs/html/index.html"
+	@echo "Documentacao gerada em docs/html/index.html"
 
 # ----------------------------------------------------------------- outros ---
 check-env:
 	@tools/check_env.sh
 
 clean:
-	rm -rf build
+	rm -rf build docs/html
