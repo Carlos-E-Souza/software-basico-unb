@@ -2,7 +2,7 @@
  * @file printer.c
  * @brief Implementação do exibidor das estruturas de um `.class`.
  *
- * @details Formato de saída próprio (decisão D12 do plano), hierárquico e
+ * @details Formato de saída próprio, hierárquico e
  * inspirado no `javap -v`. Os rótulos são escritos sem acentos para que a
  * saída seja legível em qualquer terminal, inclusive no Windows.
  */

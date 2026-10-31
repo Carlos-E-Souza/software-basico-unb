@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Verifica se o ambiente de desenvolvimento está completo (Etapa 1 do plano).
+# Verifica se o ambiente de desenvolvimento está completo.
 #
 # Checa: GCC, Make, MinGW-w64, Clang (+ runtime do libFuzzer), Doxygen,
 # Graphviz e JDK 8, e se o javac gera bytecode com major 46, 50 e 52.

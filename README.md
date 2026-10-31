@@ -228,7 +228,6 @@ include/   headers públicos
 src/       código-fonte (cli, classfile, viewer, vm)
 tests/     testes unitários (C) e programas Java de teste com saídas esperadas
 fuzz/      alvos do libFuzzer e corpus inicial
-docs/      plano do projeto e páginas extras do Doxygen
 build/     artefatos gerados (não versionado)
 ```
 

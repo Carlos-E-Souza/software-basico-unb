@@ -1,6 +1,6 @@
 # =============================================================================
 # Configuração do Doxygen da JVM didática.
-# Apenas as opções diferentes do padrão estão listadas (ver docs/PLANO.md, 3.5).
+# Apenas as opções diferentes do padrão estão listadas.
 # =============================================================================
 
 #---------------------------------------------------------------- projeto ----
