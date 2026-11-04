@@ -12,6 +12,7 @@ int test_current_failed = 0;
 void suite_version(void);
 void suite_byte_reader(void);
 void suite_class_file(void);
+void suite_class_file_errors(void);
 void suite_opcodes(void);
 void suite_number_format(void);
 void suite_viewer(void);
@@ -36,6 +37,8 @@ int main(void)
     suite_byte_reader();
     printf("Suite: class_file\n");
     suite_class_file();
+    printf("Suite: class_file_errors\n");
+    suite_class_file_errors();
     printf("Suite: opcodes\n");
     suite_opcodes();
     printf("Suite: number_format\n");
