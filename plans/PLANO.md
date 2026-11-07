@@ -1,4 +1,4 @@
-# Plano do Projeto — JVM didática em C99
+# Plano do Projeto — JVM em C99
 
 > Disciplina: Software Básico (UnB)
 > Objetivo: implementar, em C99, um **leitor/exibidor de arquivos `.class`** e um **interpretador de bytecode Java** capaz de executar pequenos programas compilados com `javac` para **Java 2 (1.2), Java 6 e Java 8**.
@@ -86,8 +86,9 @@ software-basico-unb/
 │   ├── main.c              # entrada + parsing de flags
 │   ├── cli/                # argumentos de linha de comando
 │   ├── common/             # tipos, erros, utilitários de memória/strings
-│   ├── classfile/          # leitor: byte_reader, constant_pool, attributes, class_file
-│   ├── viewer/             # exibidor: printer, opcodes (tabela de mnemônicos), disassembler
+│   ├── classfile/          # leitor: byte_reader, class_file, constant_pool (+ cp_*), attributes (+ attr_*)
+│   ├── bytecode/           # opcodes (tabela de mnemônicos) e instruction (tamanho das instruções)
+│   ├── viewer/             # exibidor: format, printer (+ print_*), disassembler
 │   └── vm/                 # interpretador: class_loader, heap, frame, interpreter,
 │                           #   instructions/*, natives/*, exceptions
 ├── tests/
@@ -127,6 +128,7 @@ Atalhos: `-v` (viewer), `-i` (interpreter), `-cp <dir>`. Erros de argumento reto
 
 - Identificadores em inglês, `snake_case` para funções/variáveis, `PascalCase` para tipos (`ClassFile`, `Frame`), `UPPER_CASE` para constantes/macros.
 - Todo arquivo começa com bloco `@file` + `@brief` em português.
+- Arquivos com **cerca de 250 linhas no máximo**. Quando um arquivo passa muito disso, ele é dividido por responsabilidade (ex.: `attributes.c` → `attr_code.c`, `attr_stack_map.c`, ...); as funções que passam a ser compartilhadas entre as partes ganham um prefixo do módulo (`attr_`) e são declaradas em um header interno (`attr_parsers.h`, `printer_internal.h`), separado da interface pública. A tabela de arquivos por módulo está na página principal da documentação (`docs/mainpage.md`).
 - Toda função (pública **e** `static`) usa o modelo abaixo — é o que gera o "frame" exigido:
 
 ```c
@@ -267,7 +269,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** L-01.
 - **Tarefas:** definir `ClassFile`, `CpInfo` (união por *tag*), `FieldInfo`, `MethodInfo`, `AttributeInfo` (união por tipo), `ExceptionTableEntry` etc.; documentar cada campo.
 - **Pronto quando:** headers compilam; aparecem na página "Estruturas de dados" do Doxygen com descrição e diagrama.
-- **Situação:** ✅ concluída — `include/classfile/class_file.h`; página `docs/estruturas.md` atualizada.
+- **Situação:** ✅ concluída — `include/classfile/class_file.h` (+ `cp_info.h` e `attribute_info.h`); página `docs/estruturas.md` atualizada.
 
 #### L-03 · Cabeçalho e validação
 - **Objetivo:** ler `magic`, `minor_version`, `major_version`.
@@ -281,7 +283,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** L-03.
 - **Tarefas:** tratar todas as *tags* até o Java 8: `Utf8`, `Integer`, `Float`, `Long`, `Double`, `Class`, `String`, `Fieldref`, `Methodref`, `InterfaceMethodref`, `NameAndType`, `MethodHandle`, `MethodType`, `InvokeDynamic`; `Long`/`Double` ocupam **duas entradas**; validar índices; decodificar **UTF-8 modificado** (MUTF-8); funções auxiliares para resolver nomes (`cp_get_utf8`, `cp_get_class_name`…).
 - **Pronto quando:** teste com classe contendo todos os tipos de constante (incl. `long`/`double`) lida corretamente; índices inválidos geram erro, não *crash*.
-- **Situação:** ✅ concluída — `classfile/constant_pool.c` + `common/mutf8.c`; pool idêntico ao do `javap -v` nas 26 classes de fixture (Java 2, 6 e 8), incluindo NUL e *surrogates* em MUTF-8.
+- **Situação:** ✅ concluída — `classfile/constant_pool.c`, `cp_validate.c`, `cp_query.c` + `common/mutf8.c`; pool idêntico ao do `javap -v` nas 26 classes de fixture (Java 2, 6 e 8), incluindo NUL e *surrogates* em MUTF-8.
 
 #### L-05 · Flags, this/super, interfaces
 - **Objetivo:** ler `access_flags`, `this_class`, `super_class`, `interfaces[]`.
@@ -300,7 +302,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** L-06.
 - **Tarefas:** `Code` (com `exception_table` e atributos aninhados), `ConstantValue`, `Exceptions`, `SourceFile`, `LineNumberTable`, `LocalVariableTable`, `InnerClasses`, `Synthetic`, `Deprecated`, `Signature`, `StackMapTable`, `BootstrapMethods`, `EnclosingMethod`; atributos desconhecidos guardados como bytes brutos.
 - **Pronto quando:** teste lê atributos de classes Java 2, 6 e 8 (incl. `StackMapTable` no Java 8); atributos desconhecidos não quebram a leitura.
-- **Situação:** ✅ concluída — `classfile/attributes.c`; todos os atributos listados, com validação de índices e de `attribute_length`; fixtures `Flow` e `Lambdas`.
+- **Situação:** ✅ concluída — `classfile/attributes.c` + `attr_*.c`; todos os atributos listados, com validação de índices e de `attribute_length`; fixtures `Flow` e `Lambdas`.
 
 #### L-08 · Liberação de memória e robustez
 - **Objetivo:** leitor sem vazamentos e resistente a entradas inválidas.
@@ -325,7 +327,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Requisitos:** L-02.
 - **Tarefas:** tabela estática `{opcode, mnemonic, operand_bytes, operand_kind}`; casos especiais `tableswitch`/`lookupswitch` (alinhamento de 4 bytes), `wide`, `invokeinterface`, `multianewarray`.
 - **Pronto quando:** teste unitário confere todos os 202 opcodes com a especificação.
-- **Situação:** ✅ concluída — `bytecode/opcodes.c` (compartilhado com o interpretador), incluindo `bytecode_instruction_length()` com alinhamento de `switch` e `wide`; suíte `opcodes`.
+- **Situação:** ✅ concluída — `bytecode/opcodes.c` + `bytecode/instruction.c` (compartilhados com o interpretador), incluindo `bytecode_instruction_length()` com alinhamento de `switch` e `wide`; suíte `opcodes`.
 
 #### E-02 · Informações gerais
 - **Objetivo:** exibir, como na aba *General Information* do jclasslib, minor/major (com nome da versão Java), tamanho do pool, flags decodificadas, this/super como `cp_info #n <constante>` e as contagens.
@@ -337,7 +339,7 @@ Legenda de cada atividade: **Objetivo** · **Requisitos** (dependências) · **T
 - **Objetivo:** exibir cada entrada como no jclasslib: índice do slot e estrutura (`[7] CONSTANT_Methodref_info`) e seus campos, cada referência como `cp_info #n <constante>` (ex.: `Class name: cp_info #2 <java/io/PrintStream>`, `Name and type: cp_info #15 <println : (I)V>`); Utf8 com tamanho em bytes e em caracteres; numéricos com bytes brutos e valor; segunda posição de Long/Double como `(large numeric continued)`.
 - **Requisitos:** E-02.
 - **Pronto quando:** comparação com `javap -v` sem divergências de conteúdo (índices, tipos, referências e valores).
-- **Situação:** ✅ concluída — `viewer/printer.c` + `viewer/format.c`; valores numéricos no formato do Java via `common/number_format.c`.
+- **Situação:** ✅ concluída — `viewer/printer.c` (+ `print_*.c`) + `viewer/format.c`; valores numéricos no formato do Java via `common/number_format.c`.
 
 #### E-04 · Interfaces, campos e métodos
 - **Objetivo:** exibir nome e descritor (`cp_info #n <constante>`), flags (`0x0009 [public static]`) e atributos de cada item; cada atributo com *Attribute name index*, *Attribute length* e o conteúdo específico, como no jclasslib.

@@ -25,13 +25,13 @@ ClassFile
 | Estrutura | Arquivo | Descrição |
 |-----------|---------|-----------|
 | ::ByteReader | `classfile/byte_reader.h` | Cursor sobre um buffer; lê `u1`, `u2`, `u4` em big-endian com verificação de limites. Sub-leitores restringem a leitura ao tamanho declarado de cada atributo. |
-| ::ClassFile | `classfile/class_file.h` | Raiz da árvore: versão, pool, flags, classe/superclasse, interfaces, campos, métodos e atributos. É dona de toda a memória e é liberada por class_file_free(). |
-| ::CpInfo | `classfile/class_file.h` | Uma entrada do pool. O campo `tag` (::ConstantTag) indica qual membro da união `info` é válido. `Long` e `Double` ocupam duas posições; a segunda tem tag `CONSTANT_Unusable`. |
-| ::CpUtf8 | `classfile/class_file.h` | Texto em UTF-8 modificado. Como o MUTF-8 nunca contém byte zero, os bytes + `'\0'` formam uma string C. |
+| ::ClassFile | `classfile/class_file.h` | Raiz da árvore: versão, pool, flags, classe/superclasse, interfaces, campos, métodos e atributos. É dona de toda a memória e é liberada por class_file_free(). O header inclui `cp_info.h` e `attribute_info.h`, então basta incluí-lo para ter todas as estruturas. |
+| ::CpInfo | `classfile/cp_info.h` | Uma entrada do pool. O campo `tag` (::ConstantTag) indica qual membro da união `info` é válido. `Long` e `Double` ocupam duas posições; a segunda tem tag `CONSTANT_Unusable`. |
+| ::CpUtf8 | `classfile/cp_info.h` | Texto em UTF-8 modificado. Como o MUTF-8 nunca contém byte zero, os bytes + `'\0'` formam uma string C. |
 | ::MemberInfo | `classfile/class_file.h` | Campo (::FieldInfo) ou método (::MethodInfo): flags, nome, descritor e atributos. |
-| ::AttributeInfo | `classfile/class_file.h` | Um atributo já interpretado; `kind` (::AttributeKind) indica o membro válido da união `info`. Atributos desconhecidos guardam os bytes brutos. |
-| ::CodeAttribute | `classfile/class_file.h` | Bytecode de um método, `max_stack`, `max_locals`, tabela de exceções (::ExceptionTableEntry) e atributos aninhados (LineNumberTable, LocalVariableTable, StackMapTable). |
-| ::StackMapFrame | `classfile/class_file.h` | Quadro do StackMapTable em forma normalizada (todas as formas — *same*, *chop*, *append*, *full* — usam a mesma estrutura). |
+| ::AttributeInfo | `classfile/attribute_info.h` | Um atributo já interpretado; `kind` (::AttributeKind) indica o membro válido da união `info`. Atributos desconhecidos guardam os bytes brutos. |
+| ::CodeAttribute | `classfile/attribute_info.h` | Bytecode de um método, `max_stack`, `max_locals`, tabela de exceções (::ExceptionTableEntry) e atributos aninhados (LineNumberTable, LocalVariableTable, StackMapTable). |
+| ::StackMapFrame | `classfile/attribute_info.h` | Quadro do StackMapTable em forma normalizada (todas as formas — *same*, *chop*, *append*, *full* — usam a mesma estrutura). |
 | ::ClassFileError | `classfile/cf_error.h` | Código (::CfStatus), posição no arquivo e mensagem de um erro de leitura. |
 
 ### Garantias do leitor

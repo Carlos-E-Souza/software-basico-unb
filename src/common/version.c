@@ -1,6 +1,6 @@
 /**
  * @file version.c
- * @brief Implementação das funções de versão da JVM didática.
+ * @brief Implementação das funções de versão da JVM.
  */
 #include "version.h"
 

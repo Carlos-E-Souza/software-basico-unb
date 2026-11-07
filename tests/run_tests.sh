@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Testes de integração da JVM didática.
+# Testes de integração da JVM.
 #
 # Cada teste é um arquivo tests/java/<tema>/<Nome>.java cuja classe principal
 # se chama <Nome>. O script:

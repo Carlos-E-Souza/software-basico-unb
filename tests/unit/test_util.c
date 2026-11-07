@@ -4,6 +4,7 @@
  */
 #include <string.h>
 
+#include "classfile/attributes.h"
 #include "test_util.h"
 
 void bb_u1(ByteBuf *b, uint8_t v)
@@ -87,4 +88,52 @@ void bb_class_with_code(ByteBuf *b, const uint8_t *code, uint16_t length)
     bb_u2(b, 0);      /* exception_table_length */
     bb_u2(b, 0);      /* attributes_count */
     bb_u2(b, 0);      /* atributos da classe */
+}
+
+CfStatus bb_parse_status(const ByteBuf *b)
+{
+    ClassFile *cf = NULL;
+    CfStatus s = class_file_parse(b->data, b->size, &cf, NULL);
+    class_file_free(cf);
+    return s;
+}
+
+void bb_bytes(ByteBuf *b, const uint8_t *bytes, size_t n)
+{
+    size_t i;
+    for (i = 0; i < n; i++) {
+        bb_u1(b, bytes[i]);
+    }
+}
+
+void bb_field_class(ByteBuf *b, uint16_t name, uint16_t descriptor,
+                    const uint8_t *attrs, size_t attrs_size,
+                    uint16_t attrs_count)
+{
+    bb_minimal_class_head(b, 2);
+    bb_utf8(b, "ConstantValue"); /* #6 */
+    bb_u1(b, 3);                 /* #7 Integer */
+    bb_u4(b, 42);
+    bb_u2(b, 0x0021);
+    bb_u2(b, 2);
+    bb_u2(b, 4);
+    bb_u2(b, 0);      /* interfaces */
+    bb_u2(b, 1);      /* fields */
+    bb_u2(b, 0x0018); /* static final */
+    bb_u2(b, name);
+    bb_u2(b, descriptor);
+    bb_u2(b, attrs_count);
+    bb_bytes(b, attrs, attrs_size);
+    bb_u2(b, 0); /* methods */
+    bb_u2(b, 0); /* atributos da classe */
+}
+
+const CodeAttribute *method_code(const MemberInfo *method)
+{
+    const AttributeInfo *a;
+    if (method == NULL) {
+        return NULL;
+    }
+    a = attribute_find(method->attributes, method->attributes_count, ATTR_CODE);
+    return a != NULL ? a->info.code : NULL;
 }

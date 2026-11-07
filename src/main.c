@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Ponto de entrada da JVM didática: interpreta a linha de comando e
+ * @brief Ponto de entrada da JVM: interpreta a linha de comando e
  *        executa o modo escolhido (exibidor ou interpretador).
  */
 #include <stdio.h>

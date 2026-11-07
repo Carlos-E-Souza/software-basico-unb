@@ -6,6 +6,9 @@
  * interpretador. Cobre os 202 opcodes definidos de 0x00 (`nop`) a 0xC9
  * (`jsr_w`). Os opcodes reservados (0xCA `breakpoint`, 0xFE/0xFF `impdep`) e
  * os não atribuídos são tratados como inválidos.
+ *
+ * Implementação: a tabela fica em opcodes.c; a leitura de operandos com
+ * sinal e o cálculo do tamanho das instruções, em instruction.c.
  */
 #ifndef JVM_OPCODES_H
 #define JVM_OPCODES_H

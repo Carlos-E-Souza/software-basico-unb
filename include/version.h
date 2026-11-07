@@ -1,6 +1,6 @@
 /**
  * @file version.h
- * @brief Informações de versão da JVM didática.
+ * @brief Informações de versão da JVM.
  *
  * @details Centraliza o número de versão do programa, exibido pela opção
  * `--version` da linha de comando e pela documentação.

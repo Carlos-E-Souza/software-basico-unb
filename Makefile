@@ -1,5 +1,5 @@
 # =============================================================================
-# Makefile da JVM didática (Software Básico - UnB)
+# Makefile da JVM (Software Básico - UnB)
 #
 # Alvos principais:
 #   make               Compila o projeto com GCC (build/jvm)

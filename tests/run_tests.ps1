@@ -1,5 +1,5 @@
 # =============================================================================
-# Testes de integração da JVM didática no Windows (PowerShell).
+# Testes de integração da JVM no Windows (PowerShell).
 #
 # Pré-requisito: os .class já compilados no Linux/WSL com
 #   tests/run_tests.sh --compile-only

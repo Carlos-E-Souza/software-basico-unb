@@ -1,4 +1,4 @@
-# software-basico-unb — JVM didática em C99
+# software-basico-unb — JVM em C99
 
 Repositório do projeto da disciplina de **Software Básico (UnB)**: uma **Máquina Virtual Java** escrita em C99, com fins didáticos. Ela tem dois modos:
 
