@@ -1,0 +1,15 @@
+# Arquivos usados no Linux/WSL devem manter quebra de linha LF, mesmo quando
+# o repositório é clonado no Windows com core.autocrlf=true. Com CRLF, o bash
+# falha ("bash\r: No such file or directory").
+*.sh      text eol=lf
+Makefile  text eol=lf
+*.dict    text eol=lf
+
+# Saídas esperadas são comparadas byte a byte.
+tests/expected/** text eol=lf
+
+# Scripts do Windows mantêm CRLF.
+*.ps1     text eol=crlf
+
+# Binários
+*.class   binary
