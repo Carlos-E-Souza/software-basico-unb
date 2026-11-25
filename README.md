@@ -22,7 +22,7 @@ O interpretador suporta:
 - **tratamento de exceções** (`try/catch/finally`, exceções do usuário e da JVM);
 - **impressão** simulada (`System.out.print`/`println`).
 
-Fica **fora do escopo**: lambdas (`invokedynamic`), `Math`, classes *wrapper* (`Integer` etc.), `Scanner`/entrada de dados, threads, reflexão e coleta de lixo.
+É um projeto acadêmico: a JVM deve ser **funcional e o mais simples possível**. Fica **fora do escopo** tudo o que a avaliação não pede: threads e `synchronized`, JIT, coleta de lixo, verificador de bytecode, *class loaders* customizados e `.jar`, lambdas (`invokedynamic`), métodos `default`, reflexão, JNI, `Math`, classes *wrapper* (`Integer` etc.), `Scanner`/entrada de dados e `String.format`.
 
 Pela regra da disciplina, **a única classe da API Java usada é `java/lang/Object`**. As demais classes de biblioteca necessárias (`String`, `System.out`, exceções padrão etc.) são simuladas em C.
 
@@ -30,7 +30,7 @@ Pela regra da disciplina, **a única classe da API Java usada é `java/lang/Obje
 
 ## Regras do projeto
 
-- Código compilado com **GCC** e **`-std=c99`**.
+- Código compilado com **GCC**, **`-std=c99`** e **`-m32`** (32 bits, como a especificação da JVM; no Windows, MinGW de 32 bits).
 - **libFuzzer** como analisador dinâmico. O libFuzzer só existe no Clang, então o **Clang é usado apenas para compilar os alvos de fuzzing**; o executável do projeto é sempre compilado com GCC.
 - Documentação gerada pelo **Doxygen**.
 
@@ -43,7 +43,8 @@ O desenvolvimento é feito em **Linux ou WSL (Ubuntu)**. O executável final (`j
 | Ferramenta | Uso | Versão mínima sugerida |
 |------------|-----|------------------------|
 | GCC + Make | Compilar o projeto (Linux) | GCC 9+ |
-| MinGW-w64 (`x86_64-w64-mingw32-gcc`) | Gerar o `jvm.exe` para Windows | qualquer recente |
+| `gcc-multilib`, `g++-multilib` | Bibliotecas de 32 bits para o `-m32` (inclusive ASan/UBSan e a `libstdc++` de 32 bits usada pelo libFuzzer) | — |
+| MinGW-w64 (`i686-w64-mingw32-gcc`) | Gerar o `jvm.exe` (32 bits) para Windows | qualquer recente |
 | Clang + LLVM | Compilar os alvos do libFuzzer | Clang 10+ |
 | Doxygen | Gerar a documentação | 1.9+ |
 | Graphviz (`dot`) | Diagramas de chamada e das estruturas | qualquer recente |
@@ -57,13 +58,16 @@ O desenvolvimento é feito em **Linux ou WSL (Ubuntu)**. O executável final (`j
 ```bash
 # Compilador, make e cross-compiler para Windows
 sudo apt update
-sudo apt install -y build-essential mingw-w64
+sudo apt install -y build-essential gcc-multilib g++-multilib mingw-w64
 
 # Clang + libFuzzer (apenas para fuzzing)
 sudo apt install -y clang llvm libclang-rt-dev
 
 # Documentação
 sudo apt install -y doxygen graphviz
+
+# Análise estática e pacote de entrega
+sudo apt install -y cppcheck python3
 
 # Java 8 (para gerar os .class de teste)
 sudo apt install -y openjdk-8-jdk
@@ -82,7 +86,7 @@ sdk install java <versao-8-escolhida>
 
 ```bash
 gcc --version
-x86_64-w64-mingw32-gcc --version
+i686-w64-mingw32-gcc --version
 clang --version
 doxygen --version
 dot -V
@@ -106,8 +110,10 @@ javac -version   # deve mostrar 1.8.x
 | `make fuzz-checkpoint` | Sessão de fuzzing dos checkpoints: 10 minutos por alvo (`FUZZ_CHECKPOINT_TIME=600`) |
 | `make fuzz-smoke` | Confirma que o libFuzzer funciona (precisa encontrar um bug proposital) |
 | `make docs` | Gera a documentação Doxygen em `docs/html/index.html` |
-| `make windows` | Gera `build/jvm.exe` para Windows (MinGW-w64) |
+| `make windows` | Gera `build/jvm.exe` (32 bits) para Windows (MinGW-w64 `i686`) |
 | `make test-windows` | Testes unitários (`unit_tests.exe`) e de integração (`jvm.exe`) executados no Windows a partir do WSL |
+| `make cppcheck` | Análise estática com o cppcheck em 32 bits; falha com qualquer aviso |
+| `make dist` | Gera o pacote de entrega `build/entrega.zip` (ver abaixo) |
 | `make check-env` | Verifica se todas as ferramentas estão instaladas e as versões de bytecode geradas |
 | `make clean` | Remove os artefatos de build (`build/`) e a documentação gerada (`docs/html/`) |
 
@@ -155,7 +161,7 @@ jvm --help
 | Flag | Atalho | Descrição |
 |------|--------|-----------|
 | `--mode viewer` ou `--viewer` | `-v` | Modo leitor/exibidor: mostra as estruturas do `.class` e o bytecode |
-| `--mode interpreter` ou `--interpreter` | `-i` | Modo interpretador: executa o método `main` da classe *(Etapa 4, ainda não disponível)* |
+| `--mode interpreter` ou `--interpreter` | `-i` | Modo interpretador: executa o método `main` da classe |
 | `--classpath <dir>` | `-cp <dir>` | Diretório onde ficam os arquivos `.class` (padrão: diretório atual) |
 | `--output <arquivo>` | `-o <arquivo>` | *(exibidor)* Grava a saída em arquivo em vez do terminal |
 | `--help` | `-h` | Mostra a ajuda |
@@ -163,7 +169,7 @@ jvm --help
 
 A classe pode ser informada pelo nome (`Exemplo`, ou `pacote.Exemplo`, procurada em `<classpath>/pacote/Exemplo.class`) ou pelo caminho do arquivo (`out/java8/Exemplo.class`).
 
-Códigos de saída: `0` sucesso, `1` argumentos inválidos, `2` funcionalidade ainda não implementada, `3` erro ao ler o `.class` ou gravar a saída.
+Códigos de saída: `0` sucesso, `1` argumentos inválidos, `3` erro ao ler o `.class` (ou classe não encontrada) ou ao gravar a saída, `4` exceção não capturada (a mensagem `Exception in thread "main" ...` vai para `stderr`), `5` erro fatal do interpretador (instrução sem suporte, como `invokedynamic`, ou bytecode inválido).
 
 ### Exemplos
 
@@ -174,7 +180,7 @@ Códigos de saída: `0` sucesso, `1` argumentos inválidos, `2` funcionalidade a
 # O mesmo, informando o arquivo e gravando a saída em um arquivo texto
 ./build/jvm -v out/java8/Exemplo.class -o exemplo.txt
 
-# Executar o programa Exemplo (Etapa 4)
+# Executar o programa Exemplo
 ./build/jvm -i -cp out/java8 Exemplo
 ```
 
@@ -186,6 +192,25 @@ No Windows, no PowerShell (que exige `.\` para executar programas da pasta atual
 ```
 
 No `cmd` (Prompt de Comando), o `.\` é opcional: `jvm.exe -v -cp out\java8 Exemplo`.
+
+### Pacote de entrega (Windows)
+
+`make dist` gera `build/entrega.zip` com o `jvm.exe` (32 bits), as fontes, o `Makefile`, a documentação HTML (`docs/html/index.html`), os relatórios (`plans/relatorios/`) e os programas de teste já compilados em `exemplos/<versão>/<tema>/<Nome>/`. No Windows não é preciso instalar nada: extraia o `.zip`, abra o PowerShell na pasta extraída e rode:
+
+```powershell
+# Exibir a estrutura de uma classe
+.\jvm.exe -v -cp exemplos\java8\print\PrintAll PrintAll
+
+# Executar programas de teste (Java 2, 6 e 8)
+.\jvm.exe -i -cp exemplos\java2\inheritance\Animals Animals
+.\jvm.exe -i -cp exemplos\java6\strings\StringOps StringOps
+.\jvm.exe -i -cp exemplos\java8\exceptions\TryCatch TryCatch
+
+# Rodar toda a bateria e comparar com as saídas esperadas do java real
+powershell -ExecutionPolicy Bypass -File tests\run_tests.ps1 -Jvm .\jvm.exe -ClassesDir exemplos
+```
+
+Para ver acentos corretamente no `cmd`, use `chcp 65001` (o `jvm.exe` já configura o console para UTF-8).
 
 ### Saída do exibidor
 

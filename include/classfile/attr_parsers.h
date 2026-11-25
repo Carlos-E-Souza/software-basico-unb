@@ -6,14 +6,13 @@
  * @details Não faz parte da interface pública do leitor (veja attributes.h).
  * Cada função `attr_parse_*` lê o conteúdo de um tipo de atributo a partir de
  * um sub-leitor limitado a `attribute_length` bytes. Organização:
- * - attr_common.c: utilitários (erro de atributo curto, validação de índice,
- *   alocação de vetores);
- * - attr_simple.c: atributos de tamanho fixo (ConstantValue, EnclosingMethod,
- *   Signature, SourceFile) e desconhecidos;
+ * - attributes.c: leitura genérica e utilitários (erro de atributo curto,
+ *   validação de índice, alocação de vetores);
+ * - attr_metadata.c: atributos informativos (ConstantValue, EnclosingMethod,
+ *   Signature, SourceFile, Exceptions, InnerClasses, LineNumberTable,
+ *   LocalVariable(Type)Table, BootstrapMethods) e desconhecidos;
  * - attr_code.c: atributo Code;
  * - attr_stack_map.c: atributo StackMapTable;
- * - attr_tables.c: atributos em forma de tabela (Exceptions, InnerClasses,
- *   LineNumberTable, LocalVariable(Type)Table, BootstrapMethods);
  * - attr_free.c: liberação de atributos.
  */
 #ifndef JVM_ATTR_PARSERS_H
@@ -26,7 +25,7 @@
 #include "classfile/byte_reader.h"
 #include "classfile/class_file.h"
 
-/* ------------------------------------------------------- attr_common.c --- */
+/* -------------------------------------------------------- attributes.c --- */
 
 /**
  * @brief Gera o erro padrão para atributo cujo conteúdo acabou antes do esperado.
@@ -74,7 +73,7 @@ CfStatus attr_check_index(const ClassFile *class_file, const ByteReader *reader,
  */
 void *attr_alloc_array(size_t count, size_t size, bool *ok);
 
-/* ------------------------------------------------------- attr_simple.c --- */
+/* ----------------------------------------------------- attr_metadata.c --- */
 
 /**
  * @brief Interpreta o atributo ConstantValue.
@@ -175,8 +174,6 @@ CfStatus attr_parse_code(ByteReader *r, const ClassFile *class_file,
  */
 CfStatus attr_parse_stack_map_table(ByteReader *r, const ClassFile *class_file,
                                     AttributeInfo *attr, ClassFileError *err);
-
-/* ------------------------------------------------------- attr_tables.c --- */
 
 /**
  * @brief Lê um vetor de índices u2 do pool, validando a tag de cada um.

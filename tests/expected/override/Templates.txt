@@ -1,0 +1,12 @@
+== Vendas ==
+total: 1234.5
+-- fim --
+== Estoque ==
+itens: 42
+-- estoque ok --
+Estoque
+construtor Base2 chama value(): 10
+construtor Base2 chama value(): 20
+10 25
+construtor Base2 chama value(): 20
+value=25

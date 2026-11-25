@@ -29,6 +29,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (size >= 4 && data[0] == 'J' && data[1] == 'V' && data[2] == 'M' &&
         data[3] == '!') {
         size_t index = size + 4; /* sempre >= 8: fora dos limites */
+        /* O acesso fora dos limites é o bug proposital que o libFuzzer deve achar. */
+        // cppcheck-suppress arrayIndexOutOfBoundsCond
         buffer[index] = 1;       /* BUG PROPOSITAL */
     }
     (void)buffer;

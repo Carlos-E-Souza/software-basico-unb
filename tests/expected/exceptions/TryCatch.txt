@@ -1,0 +1,21 @@
+capturou: / by zero
+long: java.lang.ArithmeticException: / by zero
+indice: 5
+NPE capturada true
+cast: java.lang.String cannot be cast to Integer_like
+negativo: null
+level3 ok 1
+finally level2 1
+level3 ok 2
+finally level2 2
+finally level2 3
+MyException valor alto: 3 codigo 3
+finally antes do return
+1
+finally interno
+externo pegou java.lang.IllegalStateException: interna
+Throwable: um erro
+stack overflow capturado true
+String index out of range: 10
+instanceof MyException: 9
+fim

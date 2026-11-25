@@ -1,0 +1,7 @@
+main comecou
+clinit A
+clinit B
+clinit C
+3
+2
+1

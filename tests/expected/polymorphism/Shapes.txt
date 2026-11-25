@@ -1,0 +1,9 @@
+retangulo 6.0
+quadrado 16.0
+forma 3.0
+25.0
+quadrado
+true
+true
+retangulo
+forma

@@ -81,9 +81,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     ClassFile *cf = NULL;
     ClassFileError err;
     volatile unsigned sink = 0;
-    uint16_t i;
 
     if (class_file_parse(data, size, &cf, &err) == CF_OK) {
+        uint16_t i;
         sink += exercise_constant_pool(cf);
         for (i = 0; i < cf->methods_count; i++) {
             const MethodInfo *m = &cf->methods[i];

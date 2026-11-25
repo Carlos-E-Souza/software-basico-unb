@@ -28,6 +28,8 @@
 #include "classfile/attribute_info.h"
 #include "classfile/cf_error.h"
 #include "classfile/cp_info.h"
+/* Garante compilação em 32 bits (-m32) em todo código que usa o leitor. */
+#include "common/platform.h"
 
 /** @brief Número mágico que inicia todo arquivo `.class`. */
 #define CLASS_FILE_MAGIC 0xCAFEBABEu

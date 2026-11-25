@@ -1,0 +1,13 @@
+Vehicle(Fusca)
+Car(4)
+Vehicle(Ferrari)
+Car(2)
+SportsCar(340)
+Fusca 1970 rodas=4 portas=4
+Ferrari 2020 rodas=4 portas=2 km/h=340
+4
+6
+Ferrari 2020 rodas=4 portas=2 km/h=340
+2 2 2
+true
+false

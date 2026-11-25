@@ -13,6 +13,7 @@
 #include "cli/cli.h"
 #include "version.h"
 #include "viewer/viewer.h"
+#include "vm/interpreter.h"
 
 /** @brief Tamanho máximo do caminho de um arquivo `.class`. */
 #define PATH_BUFFER_SIZE 4096
@@ -92,7 +93,7 @@ static int run_viewer(const CliOptions *options)
  * 2. Interpreta os argumentos (cli_parse()); em caso de erro, mostra a
  *    mensagem e a ajuda e retorna #EXIT_CODE_USAGE;
  * 3. Despacha: ajuda, versão, exibidor (run_viewer()) ou interpretador
- *    (ainda não implementado nesta etapa).
+ *    (vm_run_main()).
  *
  * @param[in] argc Quantidade de argumentos da linha de comando.
  * @param[in] argv Vetor com os argumentos da linha de comando.
@@ -117,13 +118,12 @@ int main(int argc, char **argv)
         cli_print_usage(stdout, program_name);
         return EXIT_CODE_OK;
     case CLI_MODE_VERSION:
-        printf("jvm %s\n", jvm_version_string());
+        printf("jvm %s\n", JVM_VERSION);
         return EXIT_CODE_OK;
     case CLI_MODE_VIEWER:
         return run_viewer(&options);
     case CLI_MODE_INTERPRETER:
-        fprintf(stderr, "Erro: o interpretador ainda nao foi implementado.\n");
-        return EXIT_CODE_NOT_IMPLEMENTED;
+        return vm_run_main(options.classpath, options.target);
     case CLI_MODE_NONE:
         break;
     }

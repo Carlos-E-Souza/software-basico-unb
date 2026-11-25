@@ -1,0 +1,5 @@
+Ana: 175 (3 ops)
+false
+Ana: 100 (4 ops)
+Bia: 75 (1 ops)
+175

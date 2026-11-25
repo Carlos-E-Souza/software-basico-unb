@@ -277,9 +277,6 @@ CfStatus class_file_load(const char *path, ClassFile **out, ClassFileError *err)
 static void members_free(MemberInfo *members, uint16_t count)
 {
     uint16_t i;
-    if (members == NULL) {
-        return;
-    }
     for (i = 0; i < count; i++) {
         attributes_free(members[i].attributes, members[i].attributes_count);
     }

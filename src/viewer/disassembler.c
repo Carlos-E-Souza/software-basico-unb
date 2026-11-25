@@ -6,7 +6,7 @@
 
 #include "bytecode/opcodes.h"
 #include "viewer/disassembler.h"
-#include "viewer/format.h"
+#include "viewer/printer_internal.h"
 
 /**
  * @brief Escreve um operando que aponta para o pool: `#n <constante>`.

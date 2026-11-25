@@ -1,15 +1,13 @@
 /**
  * @file format.c
- * @brief Implementação das funções auxiliares de formatação do exibidor.
+ * @brief Formatação geral do exibidor: flags de acesso, indentação, texto
+ *        MUTF-8 na tela e linhas no formato `Rotulo: valor`.
  */
-#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "classfile/constant_pool.h"
 #include "common/mutf8.h"
-#include "common/number_format.h"
-#include "viewer/format.h"
+#include "viewer/printer_internal.h"
 
 /** @brief Bits de contexto usados na tabela de flags. */
 enum {
@@ -142,165 +140,41 @@ void print_mutf8(FILE *out, const char *bytes, size_t length)
     free(units);
 }
 
-/**
- * @brief Escreve um texto Utf8 do pool a partir do seu índice.
- *
- * @details **Algoritmo:** obtém a entrada com cp_get_utf8() e a escreve com
- * print_mutf8(); índice inválido escreve "invalido".
- *
- * @param[in] out        Fluxo de saída.
- * @param[in] class_file Classe.
- * @param[in] index      Índice de um `CONSTANT_Utf8`.
- */
-static void print_utf8_at(FILE *out, const ClassFile *class_file, uint16_t index)
+void print_label(FILE *out, int indent, const char *label)
 {
-    const char *text = cp_get_utf8(class_file, index);
-    if (text == NULL) {
-        fputs("invalido", out);
-        return;
-    }
-    print_mutf8(out, text, class_file->constant_pool[index].info.utf8.length);
+    print_indent(out, indent);
+    fprintf(out, "%s:%*s", label, (int)(LABEL_WIDTH - strlen(label)), "");
 }
 
-/**
- * @brief Escreve `nome : descritor` de um NameAndType.
- *
- * @details **Algoritmo:** escreve os dois Utf8 apontados pela entrada,
- * separados por " : ", como no jclasslib.
- *
- * @param[in] out        Fluxo de saída.
- * @param[in] class_file Classe.
- * @param[in] index      Índice de um NameAndType.
- */
-static void print_name_and_type(FILE *out, const ClassFile *class_file,
-                                uint16_t index)
+void print_ref_line(FILE *out, const ClassFile *cf, int indent,
+                    const char *label, uint16_t index)
 {
-    const CpNameAndType *nt;
-    if (!cp_check(class_file, index, CONSTANT_NameAndType)) {
-        fputs("invalido", out);
-        return;
-    }
-    nt = &class_file->constant_pool[index].info.name_and_type;
-    print_utf8_at(out, class_file, nt->name_index);
-    fputs(" : ", out);
-    print_utf8_at(out, class_file, nt->descriptor_index);
+    print_label(out, indent, label);
+    print_cp_ref(out, cf, index);
+    fputc('\n', out);
 }
 
-/** @brief Nomes de `reference_kind` de MethodHandle, indexados de 1 a 9. */
-static const char *const REFERENCE_KINDS[] = {
-    "?", "REF_getField", "REF_getStatic", "REF_putField", "REF_putStatic",
-    "REF_invokeVirtual", "REF_invokeStatic", "REF_invokeSpecial",
-    "REF_newInvokeSpecial", "REF_invokeInterface"
-};
-
-const char *method_handle_kind_name(uint8_t kind)
+void print_number_line(FILE *out, int indent, const char *label,
+                       unsigned long value)
 {
-    return REFERENCE_KINDS[(kind >= 1 && kind <= 9) ? kind : 0];
+    print_label(out, indent, label);
+    fprintf(out, "%lu\n", value);
 }
 
-void print_constant(FILE *out, const ClassFile *class_file, uint16_t index)
+void print_flags_line(FILE *out, int indent, uint16_t flags,
+                      FlagContext context)
 {
-    const CpInfo *e;
-    char number[NUMBER_FORMAT_SIZE];
-
-    if (cp_tag(class_file, index) == CONSTANT_Unusable) {
-        fputs("invalido", out);
-        return;
-    }
-    e = &class_file->constant_pool[index];
-    switch ((ConstantTag)e->tag) {
-    case CONSTANT_Utf8:
-        print_mutf8(out, e->info.utf8.bytes, e->info.utf8.length);
-        break;
-    case CONSTANT_Integer: {
-        int32_t v = 0;
-        cp_get_int(class_file, index, &v);
-        fprintf(out, "%" PRId32, v);
-        break;
-    }
-    case CONSTANT_Float: {
-        float v = 0;
-        cp_get_float(class_file, index, &v);
-        java_format_float(number, sizeof number, v);
-        fputs(number, out);
-        break;
-    }
-    case CONSTANT_Long: {
-        int64_t v = 0;
-        cp_get_long(class_file, index, &v);
-        fprintf(out, "%" PRId64, v);
-        break;
-    }
-    case CONSTANT_Double: {
-        double v = 0;
-        cp_get_double(class_file, index, &v);
-        java_format_double(number, sizeof number, v);
-        fputs(number, out);
-        break;
-    }
-    case CONSTANT_Class:
-        print_utf8_at(out, class_file, e->info.class_name_index);
-        break;
-    case CONSTANT_String:
-        print_utf8_at(out, class_file, e->info.string_index);
-        break;
-    case CONSTANT_Fieldref:
-    case CONSTANT_Methodref:
-    case CONSTANT_InterfaceMethodref:
-        print_constant(out, class_file, e->info.ref.class_index);
-        fputc('.', out);
-        print_name_and_type(out, class_file, e->info.ref.name_and_type_index);
-        break;
-    case CONSTANT_NameAndType:
-        print_name_and_type(out, class_file, index);
-        break;
-    case CONSTANT_MethodHandle: {
-        uint8_t kind = e->info.method_handle.reference_kind;
-        fprintf(out, "%s ", method_handle_kind_name(kind));
-        print_constant(out, class_file, e->info.method_handle.reference_index);
-        break;
-    }
-    case CONSTANT_MethodType:
-        print_utf8_at(out, class_file, e->info.method_type_index);
-        break;
-    case CONSTANT_InvokeDynamic:
-        print_name_and_type(out, class_file, e->info.invoke_dynamic.name_and_type_index);
-        fprintf(out, ", BootstrapMethods #%u",
-                (unsigned)e->info.invoke_dynamic.bootstrap_method_attr_index);
-        break;
-    case CONSTANT_Unusable:
-        break;
-    }
+    char names[FLAGS_BUFFER_SIZE];
+    format_access_flags(names, sizeof names, flags, context);
+    print_label(out, indent, "Access flags");
+    fprintf(out, "0x%04X [%s]\n", (unsigned)flags, names);
 }
 
-void print_cp_ref(FILE *out, const ClassFile *class_file, uint16_t index)
+void print_section(FILE *out, const char *title, long count)
 {
-    fprintf(out, "cp_info #%u", (unsigned)index);
-    if (index != 0) {
-        fputs(" <", out);
-        print_constant(out, class_file, index);
-        fputc('>', out);
+    if (count >= 0) {
+        fprintf(out, "\n=== %s (count = %ld) ===\n", title, count);
+    } else {
+        fprintf(out, "\n=== %s ===\n", title);
     }
-}
-
-const char *constant_info_name(ConstantTag tag)
-{
-    switch (tag) {
-    case CONSTANT_Utf8:               return "CONSTANT_Utf8_info";
-    case CONSTANT_Integer:            return "CONSTANT_Integer_info";
-    case CONSTANT_Float:              return "CONSTANT_Float_info";
-    case CONSTANT_Long:               return "CONSTANT_Long_info";
-    case CONSTANT_Double:             return "CONSTANT_Double_info";
-    case CONSTANT_Class:              return "CONSTANT_Class_info";
-    case CONSTANT_String:             return "CONSTANT_String_info";
-    case CONSTANT_Fieldref:           return "CONSTANT_Fieldref_info";
-    case CONSTANT_Methodref:          return "CONSTANT_Methodref_info";
-    case CONSTANT_InterfaceMethodref: return "CONSTANT_InterfaceMethodref_info";
-    case CONSTANT_NameAndType:        return "CONSTANT_NameAndType_info";
-    case CONSTANT_MethodHandle:       return "CONSTANT_MethodHandle_info";
-    case CONSTANT_MethodType:         return "CONSTANT_MethodType_info";
-    case CONSTANT_InvokeDynamic:      return "CONSTANT_InvokeDynamic_info";
-    case CONSTANT_Unusable:           break;
-    }
-    return "(large numeric continued)";
 }

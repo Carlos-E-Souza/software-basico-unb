@@ -173,12 +173,11 @@ static void test_code_attribute(void)
 {
     ByteBuf b;
     ClassFile *cf = NULL;
-    const CodeAttribute *code;
 
     build_class_with_code(&b, 1, 0);
     ASSERT_EQ_INT(CF_OK, class_file_parse(b.data, b.size, &cf, NULL));
     if (cf != NULL) {
-        code = method_code(&cf->methods[0]);
+        const CodeAttribute *code = method_code(&cf->methods[0]);
         ASSERT_TRUE(code != NULL);
         if (code != NULL) {
             ASSERT_EQ_INT(1, code->code_length);

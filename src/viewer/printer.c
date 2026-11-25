@@ -2,10 +2,10 @@
  * @file printer.c
  * @brief Implementação do exibidor das estruturas de um `.class`.
  *
- * @details Este arquivo contém a função pública viewer_print_class(), os
- * auxiliares de linha (`Rotulo: valor`) e as seções General Information,
- * Interfaces, Fields e Methods; as demais seções ficam em
- * print_constant_pool.c, print_attributes.c e print_stack_map.c.
+ * @details Este arquivo contém a função pública viewer_print_class() e as
+ * seções General Information, Interfaces, Fields e Methods; as demais seções
+ * ficam em print_constant_pool.c, print_attributes.c e print_stack_map.c, e
+ * os auxiliares de linha (`Rotulo: valor`) em format.c.
  *
  * A saída segue a organização do visualizador jclasslib: informações
  * gerais, pool de constantes, interfaces, campos, métodos e atributos, com os
@@ -15,49 +15,9 @@
  * legível em qualquer terminal, inclusive no Windows.
  */
 #include <inttypes.h>
-#include <string.h>
 
 #include "viewer/printer_internal.h"
 #include "viewer/viewer.h"
-
-void print_label(FILE *out, int indent, const char *label)
-{
-    print_indent(out, indent);
-    fprintf(out, "%s:%*s", label, (int)(LABEL_WIDTH - strlen(label)), "");
-}
-
-void print_ref_line(FILE *out, const ClassFile *cf, int indent,
-                    const char *label, uint16_t index)
-{
-    print_label(out, indent, label);
-    print_cp_ref(out, cf, index);
-    fputc('\n', out);
-}
-
-void print_number_line(FILE *out, int indent, const char *label,
-                       unsigned long value)
-{
-    print_label(out, indent, label);
-    fprintf(out, "%lu\n", value);
-}
-
-void print_flags_line(FILE *out, int indent, uint16_t flags,
-                      FlagContext context)
-{
-    char names[FLAGS_BUFFER_SIZE];
-    format_access_flags(names, sizeof names, flags, context);
-    print_label(out, indent, "Access flags");
-    fprintf(out, "0x%04X [%s]\n", (unsigned)flags, names);
-}
-
-void print_section(FILE *out, const char *title, long count)
-{
-    if (count >= 0) {
-        fprintf(out, "\n=== %s (count = %ld) ===\n", title, count);
-    } else {
-        fprintf(out, "\n=== %s ===\n", title);
-    }
-}
 
 /**
  * @brief Escreve a seção General Information.

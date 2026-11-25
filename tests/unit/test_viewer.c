@@ -8,7 +8,7 @@
 #include "classfile/class_file.h"
 #include "test.h"
 #include "test_util.h"
-#include "viewer/format.h"
+#include "viewer/printer_internal.h"
 #include "viewer/viewer.h"
 
 /** @brief Tamanho máximo da saída capturada nos testes. */
@@ -206,7 +206,6 @@ static void test_cp_ref_zero(void)
     ClassFile *cf = NULL;
     FILE *tmp;
     char out[64];
-    size_t n;
     if (class_file_load(FIXTURES_DIR "/java8/Flow.class", &cf, NULL) != CF_OK) {
         TEST_FAIL_("%s", "falha ao ler Flow.class");
         return;
@@ -216,6 +215,7 @@ static void test_cp_ref_zero(void)
         print_cp_ref(tmp, cf, 0);
         fputc('|', tmp);
         print_cp_ref(tmp, cf, 9);
+        size_t n;
         rewind(tmp);
         n = fread(out, 1, sizeof out - 1, tmp);
         out[n] = '\0';

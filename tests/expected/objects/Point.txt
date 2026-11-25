@@ -1,0 +1,15 @@
+7
+(4, -3)
+10000000003
+1.5
+null
+origem (0, 0)
+(14, 7)
+14
+true
+99
+true
+false
+true
+true
+ponto: (99, -3)

@@ -49,16 +49,6 @@ CfStatus attributes_parse(ByteReader *reader, const ClassFile *class_file,
 void attributes_free(AttributeInfo *attributes, uint16_t count);
 
 /**
- * @brief Converte o nome de um atributo no tipo correspondente.
- *
- * @details **Algoritmo:** busca linear em uma tabela nome → tipo.
- *
- * @param[in] name Nome do atributo (ex.: "Code").
- * @return Tipo reconhecido ou #ATTR_UNKNOWN.
- */
-AttributeKind attribute_kind_from_name(const char *name);
-
-/**
  * @brief Retorna o primeiro atributo de um tipo em um vetor.
  *
  * @details **Algoritmo:** busca linear comparando @c kind.

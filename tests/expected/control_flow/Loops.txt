@@ -1,0 +1,21 @@
+5050
+5
+2
+outro
+zero
+um
+dois
+tres
+quatro
+outro
+1
+2
+3
+4
+0
+7
+achou 2 3
+true
+true
+false
+maior

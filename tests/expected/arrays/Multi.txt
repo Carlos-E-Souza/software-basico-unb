@@ -1,0 +1,15 @@
+123
+2 3 4
+0 
+1 2 
+2 3 4 
+6.0
+true
+xnull
+string
+Thing7
+true
+true
+true
+a
+z

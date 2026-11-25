@@ -9,7 +9,6 @@ int test_count = 0;
 int test_current_failed = 0;
 
 /* Suítes registradas (uma por arquivo test_*.c). */
-void suite_version(void);
 void suite_byte_reader(void);
 void suite_class_file(void);
 void suite_class_file_fixtures(void);
@@ -19,6 +18,8 @@ void suite_opcodes(void);
 void suite_number_format(void);
 void suite_viewer(void);
 void suite_cli(void);
+void suite_vm(void);
+void suite_vm_exec(void);
 
 /**
  * @brief Executa todas as suítes e informa o resultado.
@@ -33,8 +34,6 @@ void suite_cli(void);
  */
 int main(void)
 {
-    printf("Suite: version\n");
-    suite_version();
     printf("Suite: byte_reader\n");
     suite_byte_reader();
     printf("Suite: class_file\n");
@@ -53,6 +52,10 @@ int main(void)
     suite_viewer();
     printf("Suite: cli\n");
     suite_cli();
+    printf("Suite: vm\n");
+    suite_vm();
+    printf("Suite: vm_exec\n");
+    suite_vm_exec();
 
     printf("\n%d teste(s), %d falha(s)\n", test_count, test_failures);
     return test_failures == 0 ? 0 : 1;

@@ -1,0 +1,7 @@
+ok 5
+verificou 5
+app: zero
+verificou 0
+negativo: valor -2 / -2
+verificou -2
+NegativeException: valor -1

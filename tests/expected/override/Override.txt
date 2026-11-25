@@ -1,0 +1,10 @@
+Derived
+chamou Derived
+int 1
+Derived long 1
+String s
+Base.toString -> Derived
+true
+false
+Base/Derived
+Leaf(Derived)

@@ -111,6 +111,8 @@ static void test_special_values(void)
 {
     char text[NUMBER_FORMAT_SIZE];
     double zero = 0.0;
+    /* 0/0 proposital: gera NaN em tempo de execução. */
+    // cppcheck-suppress duplicateExpression
     java_format_double(text, sizeof text, zero / zero);
     ASSERT_EQ_STR("NaN", text);
     java_format_double(text, sizeof text, 1.0 / zero);

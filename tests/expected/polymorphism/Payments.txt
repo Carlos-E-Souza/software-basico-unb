@@ -1,0 +1,9 @@
+cartao taxa 3.0
+reembolsavel: 100
+dinheiro taxa 0.0
+nao reembolsavel: Cash(50)
+pix taxa 0.5
+reembolsavel: 199
+3.5
+pix
+true

@@ -1,0 +1,12 @@
+0
+3
+3
+5000000030
+4.5
+contador
+4
+42
+inicializando Other
+3
+3
+7

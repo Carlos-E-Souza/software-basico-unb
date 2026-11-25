@@ -15,6 +15,11 @@ param(
     [string]$Filter = ""
 )
 
+# A JVM escreve UTF-8 e as saídas esperadas são UTF-8 sem BOM: sem isto o
+# Windows PowerShell 5.1 decodifica a saída como OEM e os arquivos como ANSI,
+# e os testes com acentos falhariam.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 $pass = 0
 $fail = 0
 
@@ -37,7 +42,7 @@ foreach ($versionDir in Get-ChildItem -Directory $ClassesDir) {
 
         $actual = (& $Jvm -i -cp $testDir.FullName $name 2>$null) -join "`n"
         $code = $LASTEXITCODE
-        $expected = ((Get-Content -Raw $expectedTxt) -replace "`r", "").TrimEnd("`n")
+        $expected = ((Get-Content -Raw -Encoding UTF8 $expectedTxt) -replace "`r", "").TrimEnd("`n")
         $expectedCode = [int](Get-Content $expectedCodeFile)
 
         $sameOutput = ($actual.TrimEnd("`n") -ceq $expected)

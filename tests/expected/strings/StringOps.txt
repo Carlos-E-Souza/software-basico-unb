@@ -1,0 +1,27 @@
+Software Basico
+8
+w
+ware
+Soft
+4
+4
+-1
+SoftwareBasico
+true
+false
+true
+96354
+42
+3.5
+true
+c
+i=7 l=8000000000 f=1.5 d=2.75 c=x b=false n=null
+3345
+01234
+x1y2.0true
+10
+ola
+true
+acentuação: é ç ã
+0
+null? null

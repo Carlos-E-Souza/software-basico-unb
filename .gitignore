@@ -69,3 +69,7 @@ fuzz-*.log
 
 docs/
 ROTEIRO.md
+CLAUDE.md
+exemplos/
+# Documento de estudo local (não versionado)
+ENTENDENDO_O_CODIGO.md

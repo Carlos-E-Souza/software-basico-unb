@@ -1,0 +1,8 @@
+Rex faz au au
+Gato Mimi faz miau
+Generico faz ...
+Rex buscou a bola
+true
+false
+true
+3

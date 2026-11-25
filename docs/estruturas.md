@@ -48,13 +48,37 @@ ClassFile
 |-----------|---------|-----------|
 | ::OpcodeInfo | `bytecode/opcodes.h` | Mnemônico e formato dos operandos (::OperandKind) de cada um dos 256 valores de opcode; os 202 opcodes definidos (0x00–0xC9) são válidos. Usada pelo desmontador e, depois, pelo interpretador. |
 | ::CliOptions | `cli/cli.h` | Modo (::CliMode), classpath, classe alvo e arquivo de saída obtidos da linha de comando. |
-| ::FlagContext | `viewer/format.h` | Contexto usado para decodificar flags de acesso (o mesmo bit significa coisas diferentes em classes, campos e métodos, ex.: 0x0020 é `ACC_SUPER` ou `ACC_SYNCHRONIZED`). |
+| ::FlagContext | `viewer/printer_internal.h` | Contexto usado para decodificar flags de acesso (o mesmo bit significa coisas diferentes em classes, campos e métodos, ex.: 0x0020 é `ACC_SUPER` ou `ACC_SYNCHRONIZED`). |
 
 Fluxo do exibidor: `main` → cli_parse() → cli_resolve_class_path() →
 class_file_load() → viewer_print_class() → disassemble_code() para cada
 atributo Code.
 
-## Interpretador (Etapa 4)
+## Interpretador (Etapa 5)
 
-*A ser preenchida nas atividades I-01 a I-02:* `Frame`, pilha de operandos,
-`RuntimeClass`, `Object`, `Array`.
+Definidas em `include/vm/runtime.h` (desenho mínimo da seção 3.2.1 do plano):
+
+| Estrutura | Conteúdo | Observações |
+|-----------|----------|-------------|
+| `Slot` | `uint32_t` | Unidade da pilha de operandos e das locais (D6). `long`/`double` ocupam 2 slots (alto, baixo); uma referência ocupa 1 slot com o próprio ponteiro (`-m32`, D16). |
+| `SlotTag` | `TAG_VALUE`, `TAG_REF`, `TAG_RETADDR` | Etiqueta de cada slot da pilha e das locais. Só slots `TAG_REF` são usados como ponteiro; `ret` exige `TAG_RETADDR`. É a verificação mínima que impede um bytecode inválido de transformar um inteiro em ponteiro (D25). |
+| `Field` | nome, descritor, `Slot value[2]` | Campo de instância ou estático (D21). Os modelos ficam na `RuntimeClass`; cada objeto copia os modelos da classe e das superclasses. |
+| `Object` | `kind`, classe, próximo da lista do heap, união | `OBJECT_INSTANCE` (vetor de `Field`), `OBJECT_ARRAY` (`Array`) ou `OBJECT_TEXT` (`Text`: `String`, `StringBuilder`, `StringBuffer`). |
+| `Array` | descritor (`[I`, `[[Ljava/lang/String;`...), tamanho, tamanho do elemento, dados | Elementos com o tamanho real do tipo (1, 2, 4 ou 8 bytes); multidimensional = array de referências. |
+| `Text` | `uint16_t *chars`, `length` | Texto UTF-16 sem `Array` interno (D22). |
+| `RuntimeClass` | nome, `ClassFile` (NULL nas nativas), superclasse, modelos de campos, estáticos, estado do `<clinit>` | Lista ligada na `Vm`; busca linear por nome (D19). |
+| `Frame` | classe, método, bytecode, `pc`/`next_pc`, locais, pilha, etiquetas, valor de retorno | Criado por `interpreter_call()`; uma chamada Java = uma chamada C (D26). |
+| `Vm` | *classpath*, saída, classes, heap, literais internados, exceção pendente, erro fatal, profundidade | Estado global monothread (D9). |
+| `MethodRef` | classe dona, `MethodInfo` ou função nativa | Resultado da busca de método na hierarquia. |
+
+### Execução
+
+- **Despacho:** `interpreter_step()` valida o tamanho da instrução, define
+  `next_pc` e chama `handlers[opcode]` (D18). Desvios só alteram `next_pc`.
+- **Exceções:** a instrução que lança grava `vm->exception`; o laço procura
+  na `exception_table` do método (faixa de `pc` + `catch_type` compatível
+  por herança). Sem tratador, `interpreter_call()` retorna `false` e o
+  chamador repete a busca no seu método.
+- **Nativos:** linhas `{classe, método, descritor, função}`; a busca de
+  método sobe a hierarquia e, nas classes nativas, consulta essas tabelas.
+

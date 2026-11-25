@@ -1,0 +1,15 @@
+ababab
+lautriv aniuqam
+3
+true
+false
+um
+dois
+tres
+tabela: 1x1.5=1.5 2x3.0=6.0 3x4.5=13.5
+true
+false
+true
+true
+xy102.5
+objeto: sb

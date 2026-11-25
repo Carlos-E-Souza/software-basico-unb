@@ -8,21 +8,29 @@
 #   make test-integration  Testes de integração (programas Java em tests/java)
 #   make test-viewer   Compara o exibidor com o javap em todos os fixtures
 #   make check         test + test-viewer + test-integration
-#   make windows       Gera build/jvm.exe com MinGW-w64 (GCC)
+#   make windows       Gera build/jvm.exe (32 bits) com MinGW-w64 (GCC i686)
 #   make test-windows  Testes de integração usando build/jvm.exe (via WSL)
 #   make fuzz          Compila e roda os alvos do libFuzzer (Clang), FUZZ_TIME=60 s
 #   make fuzz-checkpoint  Sessão de fuzzing dos checkpoints (10 min por alvo)
 #   make fuzz-smoke    Verifica se o libFuzzer encontra o bug proposital
 #   make docs          Gera a documentação Doxygen em docs/html
+#   make cppcheck      Análise estática com o cppcheck (R11, D24)
+#   make dist          Pacote de entrega build/entrega.zip (jvm.exe, fontes, docs, exemplos)
 #   make check-env     Verifica as ferramentas instaladas
 #   make clean         Remove build/ e a documentação gerada (docs/html)
 # =============================================================================
 
 CC     := gcc
 CLANG  := clang
-MINGW  := x86_64-w64-mingw32-gcc
+MINGW  := i686-w64-mingw32-gcc
 
-# Opções obrigatórias do projeto: C99 estrito e sem warnings.
+# Opções obrigatórias do projeto: C99 estrito, sem warnings e 32 bits
+# (-m32, requisito R10: a JVM é uma máquina de 32 bits).
+# -msse2 -mfpmath=sse: em 32 bits o GCC usaria o x87, que calcula float/double
+# com precisão estendida (80 bits) e quebra a semântica IEEE 754 exigida pelo
+# Java (ex.: 2.718281828 lido do pool != literal). Com SSE2 cada operação é
+# arredondada para 32/64 bits, como no Java.
+ARCH     := -m32 -msse2 -mfpmath=sse
 STD      := -std=c99
 WARN     := -Wall -Wextra -pedantic
 WERROR   ?= -Werror
@@ -35,15 +43,15 @@ ifeq ($(MODE),debug)
   BUILD    := build/debug
   BIN      := build/jvm-debug
   OPT      := -O0 -g3 -fno-omit-frame-pointer -fsanitize=address,undefined
-  LDFLAGS  := -fsanitize=address,undefined
+  LDFLAGS  := $(ARCH) -fsanitize=address,undefined
 else
   BUILD    := build/release
   BIN      := build/jvm
   OPT      := -O2
-  LDFLAGS  :=
+  LDFLAGS  := $(ARCH)
 endif
 
-CFLAGS := $(STD) $(WARN) $(WERROR) $(OPT)
+CFLAGS := $(ARCH) $(STD) $(WARN) $(WERROR) $(OPT)
 
 # Fontes: tudo em src/; LIB_SRC exclui o main (usado em testes e fuzzing).
 SRC     := $(shell find src -name '*.c' | sort)
@@ -63,15 +71,15 @@ FIXTURE_JAVA8  := $(wildcard tests/fixtures/java8/*.java)
 FIXTURES_DIR   := build/fixtures
 FIXTURES_STAMP := $(FIXTURES_DIR)/.stamp
 
-# Fuzzing (Clang + libFuzzer, também em C99).
-FUZZ_FLAGS   := $(STD) -g -O1 -fsanitize=fuzzer,address,undefined $(CPPFLAGS)
+# Fuzzing (Clang + libFuzzer, também em C99 e 32 bits).
+FUZZ_FLAGS   := $(ARCH) $(STD) -g -O1 -fsanitize=fuzzer,address,undefined $(CPPFLAGS)
 FUZZ_TARGETS := $(filter-out fuzz_smoke,$(basename $(notdir $(wildcard fuzz/fuzz_*.c))))
 FUZZ_TIME    ?= 60
 # Duração padrão das sessões de fuzzing dos checkpoints (10 minutos).
 FUZZ_CHECKPOINT_TIME ?= 600
 
 .PHONY: all debug test test-integration check windows test-windows \
-        fuzz fuzz-checkpoint fuzz-smoke docs check-env clean fixtures test-viewer
+        fuzz fuzz-checkpoint fuzz-smoke docs check-env clean fixtures test-viewer cppcheck dist
 
 all: $(BIN)
 
@@ -79,7 +87,7 @@ $(BIN): $(OBJ)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@ $(LDLIBS)
 
-$(BUILD)/obj/%.o: src/%.c
+$(BUILD)/obj/%.o: src/%.c Makefile
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
@@ -118,14 +126,14 @@ check: test test-viewer test-integration
 # --------------------------------------------------------------- windows ----
 windows: build/jvm.exe
 
-build/jvm.exe: $(SRC) $(shell find include -name '*.h')
+build/jvm.exe: $(SRC) $(shell find include -name '*.h') Makefile
 	@mkdir -p build
-	$(MINGW) $(CPPFLAGS) $(STD) $(WARN) $(WERROR) -O2 -D__USE_MINGW_ANSI_STDIO=1 \
+	$(MINGW) $(ARCH) $(CPPFLAGS) $(STD) $(WARN) $(WERROR) -O2 -D__USE_MINGW_ANSI_STDIO=1 \
 		$(SRC) -o $@ -static $(LDLIBS)
 
-build/unit_tests.exe: $(TEST_SRC) $(wildcard tests/unit/*.h) $(LIB_SRC) $(shell find include -name '*.h')
+build/unit_tests.exe: $(TEST_SRC) $(wildcard tests/unit/*.h) $(LIB_SRC) $(shell find include -name '*.h') Makefile
 	@mkdir -p build
-	$(MINGW) $(CPPFLAGS) -Itests/unit -DFIXTURES_DIR=\"$(FIXTURES_DIR)\" $(STD) $(WARN) $(WERROR) \
+	$(MINGW) $(ARCH) $(CPPFLAGS) -Itests/unit -DFIXTURES_DIR=\"$(FIXTURES_DIR)\" $(STD) $(WARN) $(WERROR) \
 		-O2 -D__USE_MINGW_ANSI_STDIO=1 $(TEST_SRC) $(LIB_SRC) -o $@ -static $(LDLIBS)
 
 # Testes unitários e de integração executados no Windows (via WSL).
@@ -134,7 +142,7 @@ test-windows: build/jvm.exe build/unit_tests.exe $(FIXTURES_STAMP)
 	JVM_CMD="./build/jvm.exe -i" tests/run_tests.sh
 
 # ---------------------------------------------------------------- fuzzing ---
-build/fuzz/%: fuzz/%.c $(LIB_SRC)
+build/fuzz/%: fuzz/%.c $(LIB_SRC) Makefile
 	@mkdir -p $(dir $@)
 	$(CLANG) $(FUZZ_FLAGS) $< $(LIB_SRC) -o $@ $(LDLIBS)
 
@@ -165,10 +173,39 @@ fuzz-smoke: build/fuzz/fuzz_smoke
 		echo "OK: libFuzzer encontrou o bug proposital (log em build/fuzz/fuzz_smoke.log)."; \
 	fi
 
+# ------------------------------------------------------- análise estática --
+# cppcheck em 32 bits (unix32, como -m32); falha com qualquer aviso (D24).
+CPPCHECK_FLAGS := --std=c99 --platform=unix32 \
+                  --enable=warning,style,performance,portability \
+                  --inline-suppr --suppress=missingIncludeSystem --error-exitcode=1 -q
+
+cppcheck:
+	cppcheck $(CPPCHECK_FLAGS) -Iinclude src fuzz
+	cppcheck $(CPPCHECK_FLAGS) -Iinclude -Itests/unit tests/unit
+
 # ------------------------------------------------------------ documentação --
 docs:
 	doxygen Doxyfile
 	@echo "Documentacao gerada em docs/html/index.html"
+
+# ---------------------------------------------------------- entrega (F-03) --
+# build/entrega/: jvm.exe, fontes, Makefile, documentação HTML, relatórios e
+# os programas de teste já compilados (exemplos/<versão>/<tema>/<Nome>/),
+# para executar no Windows sem JDK. O .zip é gerado com o módulo zipfile do
+# Python (o Windows 10/11 abre .zip nativamente).
+DIST := build/entrega
+
+dist: build/jvm.exe docs
+	tests/run_tests.sh --compile-only > /dev/null
+	rm -rf $(DIST) build/entrega.zip
+	mkdir -p $(DIST)/docs $(DIST)/plans
+	cp build/jvm.exe README.md LICENSE Makefile Doxyfile .gitattributes $(DIST)/
+	cp -r src include tests tools fuzz $(DIST)/
+	cp -r docs/html docs/mainpage.md docs/estruturas.md $(DIST)/docs/
+	cp -r plans/PLANO.md plans/relatorios $(DIST)/plans/
+	cp -r build/tests/classes $(DIST)/exemplos
+	cd build && python3 -m zipfile -c entrega.zip entrega
+	@echo "Pacote gerado: build/entrega.zip"
 
 # ----------------------------------------------------------------- outros ---
 check-env:
